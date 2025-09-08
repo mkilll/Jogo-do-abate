@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Gojo Platformer</title>
+  <title>Gojo Platformer Skill Demo</title>
   <style>
     body { background: #222; margin: 0; overflow: hidden; }
     #gameCanvas {
@@ -12,23 +12,84 @@
       border: 3px solid #111;
       box-shadow: 0 0 30px #000b;
     }
-    #hint {
+    #hud {
       position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-      color: #fff; background: #191c; padding: 8px 22px; border-radius: 8px; font-size: 18px;
-      font-family: sans-serif; letter-spacing: 1px;
-      user-select: none; pointer-events: none;
+      color: #fff; background: #191c; padding: 8px 22px; border-radius: 8px;
+      font-size: 18px; font-family: sans-serif; letter-spacing: 1px;
+      user-select: none; pointer-events: none; z-index:2;
+      min-width: 300px;
+    }
+    #controls {
+      position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+      z-index:3;
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      width: 100vw;
+      pointer-events: none;
+    }
+    #spawnBtn {
+      pointer-events: auto;
+      background: #ffe066;
+      color: #222;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      padding: 10px 22px;
+      cursor: pointer;
+      margin-right:18px;
+      box-shadow: 0 0 10px #0005;
+      transition: background .18s;
+    }
+    #spawnBtn:hover {
+      background: #ffd60a;
+    }
+    #cooldownBarWrap {
+      pointer-events: none;
+      width: 170px;
+      height: 20px;
+      background: #333b;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid #444a;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+    #cooldownBar {
+      height: 100%;
+      background: linear-gradient(90deg,#a7b0ff 0%,#e066ff 100%);
+      border-radius: 8px 0 0 8px;
+      transition: width .2s;
+    }
+    #cooldownText {
+      position: absolute; left:0; width: 100%; text-align: center; font-size: 13px;
+      color: #fff; text-shadow: 0 0 4px #111c;
+      pointer-events:none;
+    }
+    @media (max-width: 700px){
+      #gameCanvas { width: 98vw; height: 58vw; }
+      #hud, #controls { min-width: 0; }
     }
   </style>
 </head>
 <body>
-  <div id="hint">Use ← → para andar, espaço para pular</div>
+  <div id="hud">
+    ← → para andar, espaço para pular, <b>G</b> para "Hollow Purple"
+  </div>
+  <div id="controls">
+    <button id="spawnBtn">Spawn Inimigo</button>
+    <div id="cooldownBarWrap">
+      <div id="cooldownBar" style="width:100%"></div>
+      <div id="cooldownText"></div>
+    </div>
+  </div>
   <canvas id="gameCanvas" width="600" height="320"></canvas>
   <script>
     // Spritesheet do Gojo (direita, esquerda, idle, pulo) - pixel art simples
-    // Recomendo substituir pelos seus próprios sprites PNG em sequence!
+    // Recomendo substituir pelos seus próprios sprites PNG!
     const gojoSprites = {
       idle: [
-        // 32x48 px cada frame, idle (parado)
         "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_idle1.png",
         "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_idle2.png"
       ],
@@ -42,15 +103,19 @@
       ],
       jump: [
         "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_jump.png"
-      ]
+      ],
     };
+
+    // Sprite do inimigo (pode substituir por PNG personalizado!)
+    const enemySpriteUrl = "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/enemy1.png";
 
     // Carregamento dos sprites
     let loadedSprites = {};
+    let loadedEnemySprite = null;
     let spritesToLoad = 0, spritesLoaded = 0;
     function preloadSprites(callback) {
       const keys = Object.keys(gojoSprites);
-      spritesToLoad = keys.reduce((sum, k) => sum + gojoSprites[k].length, 0);
+      spritesToLoad = keys.reduce((sum, k) => sum + gojoSprites[k].length, 0) + 1;
       spritesLoaded = 0;
       keys.forEach(key => {
         loadedSprites[key] = [];
@@ -62,7 +127,6 @@
             if (spritesLoaded === spritesToLoad) callback();
           };
           img.onerror = () => {
-            // Mostra um retângulo colorido caso não carregue
             const canvas = document.createElement('canvas');
             canvas.width = 32; canvas.height = 48;
             const ctx = canvas.getContext('2d');
@@ -76,6 +140,24 @@
           img.src = url;
         });
       });
+      // Enemy
+      const eimg = new Image();
+      eimg.onload = () => {
+        loadedEnemySprite = eimg;
+        spritesLoaded++;
+        if (spritesLoaded === spritesToLoad) callback();
+      };
+      eimg.onerror = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 32; canvas.height = 48;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = "#ff3636"; ctx.fillRect(0,0,32,48);
+        ctx.fillStyle = "#000"; ctx.fillRect(8,30,16,8);
+        loadedEnemySprite = canvas;
+        spritesLoaded++;
+        if (spritesLoaded === spritesToLoad) callback();
+      };
+      eimg.src = enemySpriteUrl;
     }
 
     // Variáveis do jogo
@@ -93,44 +175,79 @@
       animFrame: 0,
       state: "idle" // idle, walkRight, walkLeft, jump
     };
+    let enemies = [];
+
+    // Skill variables
+    let skillCooldown = 0; // 0 = pronto
+    const SKILL_COOLDOWN_MAX = 6.0; // segundos
+    let skillActive = false;
+    let skillAnimTimer = 0;
+    let skillStage = 0;
+    let skillBall = null; // objeto animacao das bolas
+    let purpleBall = null; // objeto da bola roxa lançada
 
     // Input
     let keys = {};
     document.addEventListener('keydown', e => {
-      if (["ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
-      keys[e.key] = true;
+      if (["ArrowLeft","ArrowRight"," ","g","G"].includes(e.key)) e.preventDefault();
+      keys[e.key.toLowerCase()] = true;
     });
     document.addEventListener('keyup', e => {
-      keys[e.key] = false;
+      keys[e.key.toLowerCase()] = false;
     });
 
+    // Spawn inimigo botão
+    document.getElementById('spawnBtn').onclick = function() {
+      spawnEnemy();
+    };
+
+    function spawnEnemy() {
+      // Spawn na posição aleatória no chão
+      let px = Math.random() > 0.5 ? canvas.width-60 : 60;
+      let side = px > canvas.width/2 ? -1 : 1;
+      enemies.push({
+        x: px, y: GROUND_Y, vx: 1.1 * side, vy: 0,
+        w: 32, h: 48, alive:true, anim: 0
+      });
+    }
+
     // Lógica principal
-    function gameLoop() {
-      // Lógica de movimentação
-      if (keys["ArrowLeft"]) {
-        PLAYER.vx = -PLAYER.speed;
-        PLAYER.dir = -1;
-        if (PLAYER.grounded) PLAYER.state = "walkLeft";
-      } else if (keys["ArrowRight"]) {
-        PLAYER.vx = PLAYER.speed;
-        PLAYER.dir = 1;
-        if (PLAYER.grounded) PLAYER.state = "walkRight";
+    let lastTime = 0;
+    function gameLoop(ts) {
+      let dt = (ts - lastTime) / 1000; if (!dt||dt>0.2) dt=0.016; lastTime=ts;
+
+      // Input/Movimento Gojo
+      if (!skillActive) {
+        if (keys["arrowleft"]) {
+          PLAYER.vx = -PLAYER.speed;
+          PLAYER.dir = -1;
+          if (PLAYER.grounded) PLAYER.state = "walkLeft";
+        } else if (keys["arrowright"]) {
+          PLAYER.vx = PLAYER.speed;
+          PLAYER.dir = 1;
+          if (PLAYER.grounded) PLAYER.state = "walkRight";
+        } else {
+          PLAYER.vx = 0;
+          if (PLAYER.grounded) PLAYER.state = "idle";
+        }
+        if ((keys[" "] || keys["arrowup"]) && PLAYER.grounded) {
+          PLAYER.vy = -PLAYER.jumpPower;
+          PLAYER.grounded = false;
+          PLAYER.state = "jump";
+        }
       } else {
-        PLAYER.vx = 0;
-        if (PLAYER.grounded) PLAYER.state = "idle";
-      }
-      // Pulo
-      if ((keys[" "] || keys["ArrowUp"]) && PLAYER.grounded) {
-        PLAYER.vy = -PLAYER.jumpPower;
-        PLAYER.grounded = false;
-        PLAYER.state = "jump";
+        PLAYER.vx = 0; // trava durante animação da skill
       }
 
-      // Física
+      // Skill "Hollow Purple" (tecla G)
+      if ((keys["g"]) && !skillActive && skillCooldown===0) {
+        startSkill();
+      }
+
+      // Física Gojo
       PLAYER.x += PLAYER.vx;
       PLAYER.y += PLAYER.vy;
       if (!PLAYER.grounded) PLAYER.vy += GRAVITY;
-      // Chão
       if (PLAYER.y >= GROUND_Y) {
         PLAYER.y = GROUND_Y;
         PLAYER.vy = 0;
@@ -138,32 +255,122 @@
         if (PLAYER.vx === 0) PLAYER.state = "idle";
         else PLAYER.state = PLAYER.dir === 1 ? "walkRight" : "walkLeft";
       }
-      // Limites laterais
       PLAYER.x = Math.max(0, Math.min(canvas.width-PLAYER.w, PLAYER.x));
 
-      // Animação
+      // Animação Gojo
       PLAYER.animTimer++;
       if (PLAYER.state === "idle") {
         if (PLAYER.animTimer % 20 === 0) PLAYER.animFrame = (PLAYER.animFrame+1)%loadedSprites.idle.length;
-      } else if (PLAYER.state === "walkRight" || PLAYER.state === "walkLeft") {
+      } else if (PLAYER.state === "walkRight") {
         if (PLAYER.animTimer % 8 === 0) PLAYER.animFrame = (PLAYER.animFrame+1)%loadedSprites.walkRight.length;
+      } else if (PLAYER.state === "walkLeft") {
+        if (PLAYER.animTimer % 8 === 0) PLAYER.animFrame = (PLAYER.animFrame+1)%loadedSprites.walkLeft.length;
       } else if (PLAYER.state === "jump") {
         PLAYER.animFrame = 0;
       }
-      // Desenho
+
+      // Inimigos movimento
+      enemies.forEach(enemy => {
+        if (!enemy.alive) return;
+        // Anda em direção ao Gojo
+        let dx = PLAYER.x - enemy.x;
+        let dist = Math.abs(dx);
+        if (dist > 12) enemy.vx = Math.sign(dx) * 1.1;
+        else enemy.vx = 0;
+        enemy.x += enemy.vx;
+        // pequenas animações
+        enemy.anim += 0.1 + Math.random()*0.02;
+      });
+
+      // Skill: animação e lógica
+      if (skillActive) skillAnim();
+
+      // Skill cooldown
+      if (skillCooldown>0 && !skillActive) {
+        skillCooldown -= dt;
+        if (skillCooldown<0) skillCooldown = 0;
+      }
+
+      // Bola roxa andando (destrói inimigos)
+      if (purpleBall) {
+        purpleBall.x += purpleBall.vx;
+        // colisão com inimigos
+        enemies.forEach(enemy => {
+          if (!enemy.alive) return;
+          if (purpleBall.x + purpleBall.r > enemy.x && purpleBall.x - purpleBall.r < enemy.x + enemy.w
+              && purpleBall.y + purpleBall.r > enemy.y && purpleBall.y - purpleBall.r < enemy.y + enemy.h) {
+            enemy.alive = false;
+          }
+        });
+        // remove se sair da tela
+        if (purpleBall.x < -60 || purpleBall.x > canvas.width+60) purpleBall = null;
+      }
+
+      // Render
       draw();
       requestAnimationFrame(gameLoop);
     }
 
+    // Skill Animation
+    function startSkill() {
+      skillActive = true;
+      skillAnimTimer = 0;
+      skillStage = 0;
+      // cria bolas azul e vermelha atrás do Gojo
+      skillBall = {
+        blue: { x: PLAYER.x + PLAYER.w/2 -32*PLAYER.dir, y: PLAYER.y+18, r:12 },
+        red: { x: PLAYER.x + PLAYER.w/2 -24*PLAYER.dir, y: PLAYER.y+30, r:10 }
+      };
+      purpleBall = null;
+    }
+    function skillAnim() {
+      skillAnimTimer++;
+
+      // Stage 0: bolas aparecem atrás
+      if (skillStage===0) {
+        // move as bolas lentamente para trás
+        skillBall.blue.x += 0.8 * -PLAYER.dir;
+        skillBall.red.x += 0.8 * -PLAYER.dir;
+        if (skillAnimTimer>24) skillStage=1, skillAnimTimer=0;
+      }
+      // Stage 1: bolas se aproximam
+      else if (skillStage===1) {
+        skillBall.blue.x += 0.87 * PLAYER.dir;
+        skillBall.red.x += 0.6 * PLAYER.dir;
+        // encontro no centro
+        if ((PLAYER.dir===1 && skillBall.blue.x >= PLAYER.x+PLAYER.w+6) ||
+            (PLAYER.dir===-1 && skillBall.blue.x <= PLAYER.x-12)) {
+          skillStage=2; skillAnimTimer=0;
+        }
+      }
+      // Stage 2: bola roxa aparece na frente + some bolas coloridas
+      else if (skillStage===2) {
+        let px = PLAYER.x + PLAYER.w/2 + PLAYER.dir*38;
+        purpleBall = {
+          x: px, y: PLAYER.y+26, r: 18, vx: 12*PLAYER.dir
+        };
+        skillBall = null;
+        skillStage=3; skillAnimTimer=0;
+        // sons ou tela tremendo poderia ser adicionado aqui
+      }
+      // Stage 3: bola roxa indo pra frente
+      else if (skillStage===3) {
+        // espera 12 frames para liberar movimento de novo
+        if (skillAnimTimer>12) {
+          skillActive = false;
+          skillCooldown = SKILL_COOLDOWN_MAX;
+        }
+      }
+    }
+
     // Draw
     function draw() {
-      // Fundo
       ctx.clearRect(0,0,canvas.width,canvas.height);
       // Chão
       ctx.fillStyle = "#4db04d";
       ctx.fillRect(0, GROUND_Y+PLAYER.h-8, canvas.width, 40);
 
-      // Sombra
+      // Sombra Gojo
       ctx.save();
       ctx.globalAlpha = 0.21;
       ctx.beginPath();
@@ -172,14 +379,72 @@
       ctx.fill();
       ctx.restore();
 
-      // Jogador (Gojo)
+      // Sombra e desenho dos inimigos
+      enemies.forEach(enemy => {
+        if (!enemy.alive) return;
+        ctx.save();
+        ctx.globalAlpha = 0.17;
+        ctx.beginPath();
+        ctx.ellipse(enemy.x+enemy.w/2, GROUND_Y+enemy.h-3, 15, 6, 0,0,Math.PI*2);
+        ctx.fillStyle = "#000";
+        ctx.fill();
+        ctx.restore();
+
+        // Sprite inimigo
+        ctx.save();
+        ctx.translate(enemy.x+enemy.w/2, enemy.y+enemy.h/2);
+        ctx.scale(Math.sign(enemy.vx)||1,1);
+        ctx.drawImage(loadedEnemySprite, -enemy.w/2, -enemy.h/2, enemy.w, enemy.h);
+        ctx.restore();
+      });
+
+      // Skill: bolas azul/vermelha atrás do Gojo
+      if (skillBall) {
+        // blue
+        ctx.beginPath();
+        ctx.arc(skillBall.blue.x, skillBall.blue.y, skillBall.blue.r, 0, Math.PI*2);
+        ctx.fillStyle = "#38f";
+        ctx.shadowColor = "#66cfff";
+        ctx.shadowBlur = 20;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        // red
+        ctx.beginPath();
+        ctx.arc(skillBall.red.x, skillBall.red.y, skillBall.red.r, 0, Math.PI*2);
+        ctx.fillStyle = "#f44";
+        ctx.shadowColor = "#ff9b9b";
+        ctx.shadowBlur = 18;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // Skill: bola roxa
+      if (purpleBall) {
+        ctx.save();
+        ctx.beginPath();
+        let grad = ctx.createRadialGradient(purpleBall.x, purpleBall.y, 4, purpleBall.x, purpleBall.y, purpleBall.r);
+        grad.addColorStop(0, "#fff");
+        grad.addColorStop(0.15, "#d6aaff");
+        grad.addColorStop(0.55, "#9d51c2");
+        grad.addColorStop(1, "#3d006b");
+        ctx.fillStyle = grad;
+        ctx.globalAlpha = 0.96;
+        ctx.arc(purpleBall.x, purpleBall.y, purpleBall.r, 0, Math.PI*2);
+        ctx.shadowColor = "#fff";
+        ctx.shadowBlur = 32;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+
+      // Gojo (sprites)
       let sprite;
       if (PLAYER.state === "idle") sprite = loadedSprites.idle[PLAYER.animFrame];
       else if (PLAYER.state === "walkRight") sprite = loadedSprites.walkRight[PLAYER.animFrame];
       else if (PLAYER.state === "walkLeft") sprite = loadedSprites.walkLeft[PLAYER.animFrame];
       else if (PLAYER.state === "jump") sprite = loadedSprites.jump[0];
       else sprite = loadedSprites.idle[0];
-
       ctx.drawImage(sprite, PLAYER.x, PLAYER.y, PLAYER.w, PLAYER.h);
 
       // Nome
@@ -189,12 +454,25 @@
       ctx.lineWidth = 3;
       ctx.strokeText("Gojo", PLAYER.x+2, PLAYER.y-6);
       ctx.fillText("Gojo", PLAYER.x+2, PLAYER.y-6);
+
+      // HUD: Cooldown da skill
+      const bar = document.getElementById('cooldownBar');
+      const txt = document.getElementById('cooldownText');
+      let ratio = (SKILL_COOLDOWN_MAX-skillCooldown)/SKILL_COOLDOWN_MAX;
+      bar.style.width = (ratio*100).toFixed(1) + "%";
+      txt.textContent = skillCooldown === 0 ? "Hollow Purple PRONTO!" : "Cooldown: " + skillCooldown.toFixed(1) + "s";
+      bar.style.background = skillCooldown === 0
+        ? "linear-gradient(90deg,#a7b0ff 30%,#e066ff 100%)"
+        : "linear-gradient(90deg,#666 30%,#9933cc 100%)";
     }
 
     // Iniciar depois de sprites carregados
     preloadSprites(() => {
       requestAnimationFrame(gameLoop);
     });
+
+    // Spawna um inimigo automaticamente no início para testes
+    setTimeout(spawnEnemy, 850);
   </script>
 </body>
 </html>
