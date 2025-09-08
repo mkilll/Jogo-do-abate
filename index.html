@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Gojo Ultimate Platformer</title>
+  <title>Gojo Ultimate Platformer (Azul/Vermelho Combo)</title>
   <style>
     body { background: #222; margin: 0; overflow: hidden; }
     #gameCanvas {
@@ -17,7 +17,7 @@
       color: #fff; background: #191c; padding: 8px 22px; border-radius: 8px;
       font-size: 18px; font-family: sans-serif; letter-spacing: 1px;
       user-select: none; pointer-events: none; z-index:2;
-      min-width: 320px;
+      min-width: 340px;
     }
     #controls {
       position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
@@ -78,9 +78,19 @@
       display: none;
       pointer-events: none;
     }
+    #skillsHUD {
+      position: absolute; top: 105px; left: 50%; transform: translateX(-50%);
+      background: #222d; color: #fff; border-radius: 8px; padding: 8px 18px;
+      font-size: 15px; z-index:10; min-width: 320px; pointer-events: none;
+      font-family: monospace;
+    }
+    .ultSkill { color: #ffe066; font-weight: bold; }
+    .skillReady { color: #00ffea; font-weight: bold; }
+    .skillOn { color: #a684e7; font-weight: bold; }
+    .skillLock { color: #888; }
     @media (max-width: 700px){
       #gameCanvas { width: 98vw; height: 58vw; }
-      #hud, #controls { min-width: 0; }
+      #hud, #controls, #skillsHUD { min-width: 0; }
     }
   </style>
 </head>
@@ -96,6 +106,7 @@
     </div>
   </div>
   <div id="ultReadyMsg">Pressione <b>G</b> para acordar!</div>
+  <div id="skillsHUD"></div>
   <canvas id="gameCanvas" width="600" height="320"></canvas>
   <script>
     // Sprites (sugestão: troque por PNGs reais)
@@ -195,29 +206,11 @@
     let ultReady = false, ultMode = false, ultTimer = 0;
     let ultSkillState = null;
     let ultSkillTimer = 0;
-    let ultSkillData = {};
+    let azulObj = null, azulEnemy = null, azulNoCeu = false, azulLocked = false;
+    let vermelhoObj = null, roxaoObj = null, dominioObj = null;
 
     // Ataques base
-    // J: Azul (dispara bola azul pequena que dá dano)
-    // K: Vermelho (dispara feixe vermelho curto que dá dano)
-    // L: Vazio (dispara bola roxa pequena, dano em área)
-    // (adicionando mais 3 ataques como pedido)
-    // U: "Arremesso" (Gojo arremessa um inimigo para cima se próximo)
-    // I: "Empurrão" (Gojo empurra inimigos próximos para longe)
-    // O: "Campo de energia" (Gojo cria uma barreira que bloqueia projéteis e empurra inimigos)
-
     let projectiles = [];
-
-    // Ataques Ultimate
-    // G: ativa modo ultimate (moveset muda)
-    // 1: Azul Máximo (Q) -> bola azul gigante gira e vai ao céu, puxa inimigos
-    // 2: Vermelho Máximo (W) -> feixe vermelho; se Azul Máximo está no céu, vira esfera e se funde, criando Bola Roxa Gigante
-    // 3: Vazio Roxo (E) -> bola roxa gigante na direção do personagem
-    // 4: Expansão de Domínio (R) -> campo, paralisa inimigos por 5s
-
-    // Estado dos moves
-    let ultMoves = { azul: false, vermelho: false, vazio: false, dominio: false };
-    let azulNoCeu = false, azulObj = null, vermelhoObj = null, roxaoObj = null, dominioObj = null;
 
     // Input
     let keys = {};
@@ -265,7 +258,9 @@
         ultTimer = 0;
         PLAYER.ultActive = true;
         balloon("Modo Ilimitado!", PLAYER.x+PLAYER.w/2, PLAYER.y-36,"#ffe066",120);
-        ultMoves = { azul: false, vermelho: false, vazio: false, dominio: false };
+        azulObj = null; azulEnemy = null; azulNoCeu = false; azulLocked = false;
+        vermelhoObj = null; roxaoObj = null; dominioObj = null;
+        ultSkillState = null; ultSkillTimer = 0;
       }
 
       // Input/Movimento
@@ -288,7 +283,6 @@
           PLAYER.state = "jump";
         }
       } else if (!ultSkillState && PLAYER.ultActive) {
-        // Em ult mode, pode andar normalmente
         if (keys["arrowleft"]) {
           PLAYER.vx = -PLAYER.speed-0.4;
           PLAYER.dir = -1;
@@ -338,10 +332,16 @@
       // Enemies
       enemies.forEach(enemy => {
         if (!enemy.alive) return;
-        // Paralisado?
         if (enemy.paralisado) {
           enemy.paralyzeTimer--;
           if (enemy.paralyzeTimer<=0) enemy.paralisado=false;
+          return;
+        }
+        // Azul Máximo: inimigo preso no céu
+        if (azulEnemy && azulEnemy.enemy === enemy) {
+          enemy.x = azulEnemy.x;
+          enemy.y = azulEnemy.y;
+          enemy.vx = 0; enemy.vy = 0;
           return;
         }
         // Anda em direção ao Gojo
@@ -357,7 +357,6 @@
       for (let p of projectiles) {
         p.x += p.vx;
         p.y += p.vy;
-        // colisão com inimigos
         for (let enemy of enemies) {
           if (!enemy.alive || enemy.paralisado) continue;
           if (p.x + p.r > enemy.x && p.x - p.r < enemy.x + enemy.w
@@ -389,35 +388,6 @@
           balloon("Vazio!", PLAYER.x+PLAYER.w/2, PLAYER.y-35,"#e0b6ff",54); keys["l"]=false;
           ultValue = Math.min(ultValue + 12, ULT_MAX);
         }
-        if (keys["u"]) { // Arremesso
-          for (let enemy of enemies) {
-            if (enemy.alive && Math.abs(enemy.x-PLAYER.x)<42 && Math.abs(enemy.y-PLAYER.y)<30) {
-              enemy.vy = -9-Math.random()*4;
-              enemy.vx = 2.3*PLAYER.dir;
-              balloon("Arremesso!", enemy.x+16, enemy.y-32,"#f5e642",54); keys["u"]=false;
-              ultValue = Math.min(ultValue + 6, ULT_MAX);
-              break;
-            }
-          }
-        }
-        if (keys["i"]) { // Empurrão
-          for (let enemy of enemies) {
-            if (enemy.alive && Math.abs(enemy.x-PLAYER.x)<54 && Math.abs(enemy.y-PLAYER.y)<36) {
-              enemy.vx = 7*PLAYER.dir;
-              balloon("Empurrão!", enemy.x+16, enemy.y-32,"#45e2f5",54); keys["i"]=false;
-              ultValue = Math.min(ultValue + 6, ULT_MAX);
-            }
-          }
-        }
-        if (keys["o"]) { // Campo de energia
-          for (let enemy of enemies) {
-            if (enemy.alive && Math.abs(enemy.x-PLAYER.x)<80 && Math.abs(enemy.y-PLAYER.y)<40) {
-              enemy.vx = 6.2*(enemy.x>PLAYER.x?1:-1);
-              balloon("Campo de Energia!", enemy.x+16, enemy.y-40,"#d4f542",54); keys["o"]=false;
-              ultValue = Math.min(ultValue + 8, ULT_MAX);
-            }
-          }
-        }
       }
 
       // Ultimate barra
@@ -434,17 +404,18 @@
         ultTimer += dt;
         if (!ultSkillState) {
           // Q: Azul Máximo
-          if (keys["q"]) {
+          if (keys["q"] && !azulLocked) {
             ultSkillState = "azulmax";
             ultSkillTimer = 0; keys["q"]=false;
-            azulNoCeu = false;
             azulObj = {
               x: PLAYER.x+PLAYER.w/2, y: PLAYER.y+24, r:18, state:0, t:0, pulling:[], goingUp:false
             };
+            azulEnemy = null;
+            azulNoCeu = false;
             balloon("Azul Máximo!", azulObj.x, azulObj.y-60,"#42c9fa",94);
           }
           // W: Vermelho Máximo
-          if (keys["w"]) {
+          if (keys["w"] && (azulNoCeu || azulEnemy)) {
             ultSkillState = "vermelhomax";
             ultSkillTimer = 0; keys["w"]=false;
             vermelhoObj = {
@@ -452,150 +423,107 @@
             };
             balloon("Vermelho Máximo!", vermelhoObj.x, vermelhoObj.y-42,"#ff5555",80);
           }
-          // E: Vazio Roxo
-          if (keys["e"]) {
-            ultSkillState = "vazioroxo";
-            ultSkillTimer = 0; keys["e"]=false;
-            roxaoObj = {
-              x: PLAYER.x+PLAYER.w/2+PLAYER.dir*26, y: PLAYER.y+28, r:21, dir:PLAYER.dir, t:0
-            };
-            balloon("Vazio Roxo!", roxaoObj.x, roxaoObj.y-42,"#a684e7",80);
+        }
+      }
+
+      // Azul Máximo lógica
+      if (ultSkillState==="azulmax" && azulObj) {
+        azulObj.t++;
+        if (azulObj.state===0) {
+          // Gira e puxa
+          azulObj.r = 34 + Math.sin(azulObj.t/10)*6;
+          azulObj.x = PLAYER.x+PLAYER.w/2 + Math.cos(azulObj.t/13)*32*PLAYER.dir;
+          azulObj.y = PLAYER.y+30 + Math.sin(azulObj.t/11)*14;
+          // Puxa inimigos próximos
+          for (let enemy of enemies) {
+            if (enemy.alive && !enemy.paralisado && !azulEnemy) {
+              let dx = azulObj.x-enemy.x, dy = azulObj.y-enemy.y;
+              let dist = Math.hypot(dx,dy);
+              if (dist < 70) {
+                // Pega só um inimigo
+                azulEnemy = {enemy, x: azulObj.x, y: azulObj.y};
+                enemy.x = azulObj.x;
+                enemy.y = azulObj.y;
+                enemy.vx = 0; enemy.vy = 0;
+                enemy.paralisado = true; enemy.paralyzeTimer = 999;
+                azulObj.state = 1; azulObj.t = 0;
+                azulLocked = true;
+                balloon("Preso pelo Azul Máximo!", enemy.x+16, enemy.y-30,"#42c9fa",64);
+                break;
+              }
+            }
           }
-          // R: Expansão de Domínio
-          if (keys["r"]) {
-            ultSkillState = "dominio";
-            ultSkillTimer = 0; keys["r"]=false;
-            dominioObj = {
-              x: PLAYER.x, y:PLAYER.y, r:0, state:0, t:0
-            };
-            balloon("Expansão de Domínio: Vazio Ilimitado!", PLAYER.x+PLAYER.w/2, PLAYER.y-90,"#fff",120);
+          if (azulObj.t > 45 && !azulEnemy) {
+            azulObj.state = 2; azulObj.t = 0; // Sobe direto se não pegar ninguém
+          }
+        }
+        // Estado 1: inimigo preso, bola e inimigo sobem juntos
+        else if (azulObj.state===1) {
+          azulObj.y -= 4.5;
+          azulEnemy.y -= 4.5;
+          azulObj.x = azulEnemy.x;
+          if (azulObj.y < 42) {
+            azulObj.state = 3; azulObj.t = 0;
+            azulNoCeu = true;
+            // Libera inimigo lá no céu
+            azulEnemy.enemy.x = azulEnemy.x;
+            azulEnemy.enemy.y = azulEnemy.y;
+            azulEnemy.enemy.paralisado = true;
+            azulEnemy.enemy.paralyzeTimer = 400;
+            azulEnemy.enemy.inAzulCeu = true;
+          }
+        }
+        // Estado 2: bola sobe sozinha para o céu
+        else if (azulObj.state===2) {
+          azulObj.y -= 6;
+          if (azulObj.y < 42) {
+            azulObj.state = 3; azulObj.t = 0;
+            azulNoCeu = true;
+          }
+        }
+        // Estado 3: bola fica no céu esperando interação
+        else if (azulObj.state===3) {
+          if (azulObj.t > 900) { // ~15s max espera
+            azulObj = null; azulNoCeu = false; azulEnemy = null; azulLocked = false; ultSkillState=null;
           }
         }
       }
 
-      // Ultimate skills animação & efeitos
-      if (ultSkillState) {
-        ultSkillTimer++;
-        // Azul Máximo
-        if (ultSkillState==="azulmax" && azulObj) {
-          azulObj.t++;
-          if (azulObj.state===0) {
-            // Gira ao redor e puxa inimigos
-            azulObj.r = 34 + Math.sin(azulObj.t/10)*6;
-            azulObj.x = PLAYER.x+PLAYER.w/2 + Math.cos(azulObj.t/13)*32*PLAYER.dir;
-            azulObj.y = PLAYER.y+30 + Math.sin(azulObj.t/11)*14;
-            if (azulObj.t>36) azulObj.state=1, azulObj.t=0;
-            // Puxa inimigos próximos
-            for (let enemy of enemies) {
-              if (enemy.alive && !enemy.paralisado) {
-                let dx = azulObj.x-enemy.x, dy = azulObj.y-enemy.y;
-                let dist = Math.hypot(dx,dy);
-                if (dist < 120) {
-                  enemy.vx += dx/dist*0.59;
-                  enemy.vy += dy/dist*0.23;
-                  if (dist < azulObj.r+12) {
-                    enemy.alive=false;
-                    balloon("Sugado pelo Azul!", enemy.x+16, enemy.y-24,"#42c9fa",54);
-                  }
-                }
-              }
-            }
-          } else if (azulObj.state===1) {
-            // Vai ao céu
-            azulObj.goingUp = true;
-            azulObj.y -= 5.5;
-            if (azulObj.y < 40) azulObj.state=2, azulNoCeu=true, azulObj.t=0;
-          } else if (azulObj.state===2) {
-            // Fica no céu por ~5s
-            if (azulObj.t>300) { azulObj=null; azulNoCeu=false; ultSkillState=null;}
-          }
-        }
-        // Vermelho Máximo
-        else if (ultSkillState==="vermelhomax" && vermelhoObj) {
-          vermelhoObj.t++;
-          if (!azulNoCeu) {
-            // Feixe
-            let len = Math.min(230, vermelhoObj.t*5);
-            ctx.save();
-            ctx.globalAlpha = 0.16+0.24*Math.sin(vermelhoObj.t/3);
-            ctx.fillStyle = "#ff4c4c";
-            ctx.fillRect(vermelhoObj.x, vermelhoObj.y-7, len*vermelhoObj.dir,14);
-            ctx.restore();
-            // Dano: área em frente
-            for (let enemy of enemies) {
-              if (!enemy.alive||enemy.paralisado) continue;
-              let hit = false;
-              if (vermelhoObj.dir>0 && enemy.x>vermelhoObj.x && enemy.x<vermelhoObj.x+len && Math.abs(enemy.y-vermelhoObj.y)<25) hit = true;
-              if (vermelhoObj.dir<0 && enemy.x<vermelhoObj.x && enemy.x>vermelhoObj.x-len && Math.abs(enemy.y-vermelhoObj.y)<25) hit = true;
-              if (hit) {
-                enemy.alive = false;
-                balloon("Desintegrado pelo Vermelho!", enemy.x+16, enemy.y-24,"#ff5555",54);
-              }
-            }
-            if (vermelhoObj.t>22) {vermelhoObj=null; ultSkillState=null;}
-          } else {
-            // Interação: Azul no céu -> esfera se forma e sobe
-            vermelhoObj.y -= 2.5;
-            if (vermelhoObj.t>12) {
-              // Criar Bola Roxa Gigante
+      // W: Vermelho Máximo combo
+      if (ultSkillState==="vermelhomax" && vermelhoObj) {
+        vermelhoObj.t++;
+        if (azulNoCeu || azulEnemy) {
+          // Bola vermelha sobe para o azul
+          if (azulObj && azulObj.state === 3) {
+            if (vermelhoObj.t<16) {
+              vermelhoObj.y -= 4;
+              vermelhoObj.x += (azulObj.x-vermelhoObj.x)/8;
+            } else {
+              // Bola roxa surge no céu
               roxaoObj = {
-                x: azulObj.x, y: azulObj.y+10, r: 34, dir:PLAYER.dir, t:0, area:true
+                x: azulObj.x, y: azulObj.y, r: 42, t:0, area:true
               };
               balloon("Combinação: Vazio Roxo Supremo!", roxaoObj.x, roxaoObj.y-42,"#ae7fff",110);
-              azulObj=null; azulNoCeu=false; vermelhoObj=null; ultSkillState="roxao";
-            }
-          }
-        }
-        // Vazio Roxo
-        else if (ultSkillState==="vazioroxo" && roxaoObj) {
-          roxaoObj.t++;
-          roxaoObj.x += 12*PLAYER.dir;
-          // Dano em tudo no caminho
-          for (let enemy of enemies) {
-            if (!enemy.alive||enemy.paralisado) continue;
-            if (roxaoObj.x + roxaoObj.r > enemy.x && roxaoObj.x - roxaoObj.r < enemy.x + enemy.w
-              && roxaoObj.y + roxaoObj.r > enemy.y && roxaoObj.y - roxaoObj.r < enemy.y + enemy.h) {
-                enemy.alive = false;
-                balloon("Eliminado pelo Vazio Roxo!", enemy.x+16, enemy.y-24,"#a684e7",54);
-            }
-          }
-          if (roxaoObj.x < -80 || roxaoObj.x > canvas.width+80) { roxaoObj=null; ultSkillState=null; }
-        }
-        // Roxao (combinação Azul+Vermelho)
-        else if (ultSkillState==="roxao" && roxaoObj) {
-          roxaoObj.t++;
-          roxaoObj.y += 4.5;
-          if (roxaoObj.t>16) {
-            // Explosão em área
-            for (let enemy of enemies) {
-              if (!enemy.alive||enemy.paralisado) continue;
-              let dx = roxaoObj.x - (enemy.x+enemy.w/2), dy = roxaoObj.y - (enemy.y+enemy.h/2);
-              if (Math.hypot(dx,dy)<roxaoObj.r+60) {
-                enemy.alive = false;
-                balloon("Aniquilado pela Bola Roxa Suprema!", enemy.x+16, enemy.y-24,"#ae7fff",86);
+              // Dano em área + inimigo preso
+              for (let enemy of enemies) {
+                if (!enemy.alive) continue;
+                let dx = roxaoObj.x - (enemy.x+enemy.w/2), dy = roxaoObj.y - (enemy.y+enemy.h/2);
+                if (Math.hypot(dx,dy)<roxaoObj.r+80) {
+                  enemy.alive = false;
+                  balloon("Aniquilado pela Bola Roxa Suprema!", enemy.x+16, enemy.y-24,"#ae7fff",86);
+                }
               }
-            }
-            roxaoObj=null; ultSkillState=null;
-          }
-        }
-        // Expansão de Domínio: Vazio Ilimitado
-        else if (ultSkillState==="dominio" && dominioObj) {
-          dominioObj.t++;
-          if (dominioObj.state===0) {
-            dominioObj.r += 15;
-            if (dominioObj.r > 270) dominioObj.state=1;
-            for (let enemy of enemies) {
-              if (!enemy.alive) continue;
-              let dx = (PLAYER.x+PLAYER.w/2) - (enemy.x+enemy.w/2);
-              let dy = (PLAYER.y+PLAYER.h/2) - (enemy.y+enemy.h/2);
-              if (Math.hypot(dx,dy)<dominioObj.r) {
-                enemy.paralisado = true;
-                enemy.paralyzeTimer = 300; // 5s
-              }
+              azulObj = null; azulNoCeu = false; azulEnemy = null; azulLocked = false;
+              vermelhoObj = null;
+              setTimeout(()=>{roxaoObj=null; ultSkillState=null;},1500);
             }
           }
-          if (dominioObj.t>320) { dominioObj=null; ultSkillState=null;}
         }
+      }
+
+      // Outras skills ult (apenas exibição na HUD)
+      if (ultMode && !azulObj && !vermelhoObj && !roxaoObj && !dominioObj) {
+        ultSkillState = null;
       }
 
       // ULTIMATE: Duração ~15s
@@ -603,6 +531,8 @@
         if (!ultSkillState) ultTimer += dt;
         if (ultTimer > 15.5) {
           ultMode = false; ultValue = 0; PLAYER.ultActive=false;
+          azulObj = null; azulEnemy = null; azulNoCeu = false; azulLocked = false;
+          vermelhoObj = null; roxaoObj = null; dominioObj = null; ultSkillState = null;
         }
       }
 
@@ -611,17 +541,16 @@
 
       // Render
       draw();
+      renderSkillsHUD();
       requestAnimationFrame(gameLoop);
     }
 
     // Draw
     function draw() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      // Chão
       ctx.fillStyle = "#4db04d";
       ctx.fillRect(0, GROUND_Y+PLAYER.h-8, canvas.width, 40);
 
-      // Sombra Gojo
       ctx.save();
       ctx.globalAlpha = 0.21;
       ctx.beginPath();
@@ -630,7 +559,6 @@
       ctx.fill();
       ctx.restore();
 
-      // Sombra e desenho dos inimigos
       enemies.forEach(enemy => {
         if (!enemy.alive) return;
         ctx.save();
@@ -649,7 +577,6 @@
         ctx.restore();
       });
 
-      // Projéteis base
       for (let p of projectiles) {
         if (p.type==="azul") {
           ctx.beginPath();
@@ -680,7 +607,6 @@
         }
       }
 
-      // ULTIMATE SKILLS (animações)
       // Azul Máximo
       if (azulObj) {
         ctx.save();
@@ -700,22 +626,19 @@
         ctx.restore();
       }
       // Vermelho Máximo
-      if (vermelhoObj && !azulNoCeu) {
+      if (vermelhoObj && (azulNoCeu || azulEnemy)) {
         ctx.save();
         ctx.globalAlpha = 0.5;
-        ctx.fillStyle = "#ff4c4c";
-        ctx.fillRect(vermelhoObj.x, vermelhoObj.y-7, 170*vermelhoObj.dir,14);
-        ctx.globalAlpha = 1;
         ctx.beginPath();
         ctx.arc(vermelhoObj.x,vermelhoObj.y,vermelhoObj.r,0,Math.PI*2);
         ctx.fillStyle = "#f55";
         ctx.shadowColor = "#faa";
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = 24;
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.restore();
       }
-      // Bola Roxa (combinação)
+      // Bola Roxa Supremo
       if (roxaoObj) {
         ctx.save();
         let grad = ctx.createRadialGradient(roxaoObj.x, roxaoObj.y, 9, roxaoObj.x, roxaoObj.y, roxaoObj.r);
@@ -727,25 +650,13 @@
         ctx.arc(roxaoObj.x,roxaoObj.y,roxaoObj.r,0,Math.PI*2);
         ctx.fillStyle = grad;
         ctx.shadowColor = "#fff";
-        ctx.shadowBlur = 42;
+        ctx.shadowBlur = 48;
         ctx.globalAlpha = 0.98;
         ctx.fill();
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
         ctx.restore();
       }
-      // Expansão de Domínio
-      if (dominioObj) {
-        ctx.save();
-        ctx.globalAlpha = 0.18 + Math.sin(dominioObj.r/40)*0.08;
-        ctx.beginPath();
-        ctx.arc(PLAYER.x+PLAYER.w/2,PLAYER.y+PLAYER.h/2,dominioObj.r,0,Math.PI*2);
-        ctx.fillStyle = "#b8a8ff";
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.restore();
-      }
-
       // Gojo (sprites)
       let sprite;
       if (PLAYER.state === "idle") sprite = loadedSprites.idle[PLAYER.animFrame];
@@ -755,7 +666,6 @@
       else sprite = loadedSprites.idle[0];
       ctx.drawImage(sprite, PLAYER.x, PLAYER.y, PLAYER.w, PLAYER.h);
 
-      // Nome
       ctx.font = "bold 19px Arial";
       ctx.fillStyle = "#fff";
       ctx.strokeStyle = "#222";
@@ -763,7 +673,6 @@
       ctx.strokeText("Gojo", PLAYER.x+2, PLAYER.y-6);
       ctx.fillText("Gojo", PLAYER.x+2, PLAYER.y-6);
 
-      // Balões de fala
       for (let b of balloons) {
         let alpha = b.t/b.max;
         ctx.save();
@@ -792,14 +701,35 @@
         : "linear-gradient(90deg,#b0bec5 0%,#9575cd 100%)";
     }
 
-    // Iniciar depois de sprites carregados
+    function renderSkillsHUD() {
+      const skillsHUD = document.getElementById('skillsHUD');
+      if (!ultMode) {
+        skillsHUD.innerHTML = `
+          <b>Base Moveset</b>:
+          <span class="skillReady">J</span> Azul |
+          <span class="skillReady">K</span> Vermelho |
+          <span class="skillReady">L</span> Vazio
+        `;
+      } else {
+        let azulStatus = (!azulObj && !azulNoCeu && !azulEnemy) ? "skillReady" : "skillLock";
+        let vermelhoStatus = (azulNoCeu || azulEnemy) ? "skillReady" : "skillLock";
+        let roxaoStatus = "skillLock";
+        let dominioStatus = "skillLock";
+        skillsHUD.innerHTML = `
+          <b>Ultimate Moveset</b>:
+          <span class="ultSkill ${azulStatus}">Q</span> Azul Máximo
+          ${azulNoCeu||azulEnemy?"<span style='color:#ffe066'>[Azul no céu]</span>":""} |
+          <span class="ultSkill ${vermelhoStatus}">W</span> Vermelho Máximo
+          ${roxaoObj?"<span style='color:#a684e7'>[Vazio Roxo Supremo!]</span>":""}
+        `;
+      }
+    }
+
     preloadSprites(() => {
       requestAnimationFrame(gameLoop);
     });
 
-    // Spawna um inimigo automaticamente no início
     setTimeout(spawnEnemy, 850);
-
   </script>
 </body>
 </html>
