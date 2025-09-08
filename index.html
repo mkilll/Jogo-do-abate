@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Jujutsu Aisen: Jogo do Abate</title>
+  <style>
+    body {
+      background: #222;
+      color: #eee;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      text-align: center;
+      padding: 0;
+      margin: 0;
+    }
+    h1 {
+      color: #ffe066;
+      margin-top: 30px;
+    }
+    #game {
+      background: #333;
+      max-width: 400px;
+      margin: 40px auto;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #0008;
+      padding: 24px;
+    }
+    button, select {
+      background: #ffe066;
+      color: #222;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      margin: 8px 4px;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover, select:hover {
+      background: #ffbe0b;
+    }
+    .char-status {
+      margin: 22px 0;
+      background: #222;
+      border-radius: 7px;
+      padding: 10px;
+    }
+    .char-status span {
+      font-weight: bold;
+      color: #ffe066;
+    }
+    #log {
+      background: #191919;
+      height: 120px;
+      overflow-y: auto;
+      border-radius: 7px;
+      font-size: 15px;
+      margin-top: 20px;
+      text-align: left;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jujutsu Aisen: Jogo do Abate</h1>
+  <div id="game">
+    <div>
+      <label for="playerChar">Escolha seu personagem:</label>
+      <select id="playerChar">
+        <option value="gojo">Satoru Gojo</option>
+        <option value="yuji">Yuji Itadori</option>
+        <option value="nanami">Kento Nanami</option>
+      </select>
+      <button onclick="startGame()">Iniciar Jogo</button>
+    </div>
+    <div id="status" style="display:none">
+      <div class="char-status" id="p1"></div>
+      <div class="char-status" id="p2"></div>
+      <div class="char-status" id="p3"></div>
+      <div>
+        <button id="atk1" onclick="attack(1)" style="display:none"></button>
+        <button id="atk2" onclick="attack(2)" style="display:none"></button>
+        <button id="atk3" onclick="attack(3)" style="display:none"></button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+<script>
+const chars = {
+  gojo: {
+    nome: "Satoru Gojo",
+    vida: 120,
+    ataque: 35,
+    defesa: 7,
+    especial: "Limitless"
+  },
+  yuji: {
+    nome: "Yuji Itadori",
+    vida: 110,
+    ataque: 30,
+    defesa: 10,
+    especial: "Divergent Fist"
+  },
+  nanami: {
+    nome: "Kento Nanami",
+    vida: 105,
+    ataque: 32,
+    defesa: 12,
+    especial: "Ratio Technique"
+  }
+};
+
+let players = [];
+let playerIdx = 0;
+let aliveIdxs = [];
+let log = [];
+
+function startGame() {
+  const select = document.getElementById("playerChar");
+  const escolha = select.value;
+  // embaralhar personagens para cpu
+  let all = ["gojo", "yuji", "nanami"];
+  all = all.filter(c => c !== escolha);
+  shuffle(all);
+  players = [
+    { ...chars[escolha], id: 1, humano: true, vidaAtual: chars[escolha].vida },
+    { ...chars[all[0]], id: 2, humano: false, vidaAtual: chars[all[0]].vida },
+    { ...chars[all[1]], id: 3, humano: false, vidaAtual: chars[all[1]].vida },
+  ];
+  playerIdx = 0;
+  aliveIdxs = [0,1,2];
+  log = [];
+  document.getElementById("status").style.display = '';
+  updateUI();
+}
+
+function updateUI() {
+  for (let i=0;i<3;i++) {
+    let p = players[i];
+    let status = `<span>${p.nome}</span> — Vida: ${p.vidaAtual} / ${p.vida} | Ataque: ${p.ataque} | Defesa: ${p.defesa} | Especial: ${p.especial}`;
+    if (p.vidaAtual <= 0) status += " <b style='color:#e63946;'>(Derrotado)</b>";
+    document.getElementById('p'+(i+1)).innerHTML = status;
+  }
+  // mostrar botões de ataque se turno do jogador
+  let turno = aliveIdxs[playerIdx];
+  let p = players[turno];
+  let you = p.humano;
+  for (let i=1;i<=3;i++) {
+    let btn = document.getElementById('atk'+i);
+    if (you && players[i-1].vidaAtual>0 && i-1!==turno) {
+      btn.style.display = '';
+      btn.innerText = `Atacar ${players[i-1].nome}`;
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+  // mostrar log
+  document.getElementById('log').innerHTML = log.slice(-8).join("<br>");
+  // se fim de jogo
+  if (aliveIdxs.length === 1) {
+    let vencedor = players[aliveIdxs[0]];
+    log.push(`<b style="color:#aaffaa">Vencedor: ${vencedor.nome}!</b>`);
+    document.getElementById('log').innerHTML = log.slice(-8).join("<br>");
+    for (let i=1;i<=3;i++) document.getElementById('atk'+i).style.display='none';
+  }
+}
+
+function attack(idx) {
+  let turno = aliveIdxs[playerIdx];
+  let alvo = idx-1;
+  if (players[alvo].vidaAtual <= 0 || alvo === turno) return;
+  let atq = players[turno].ataque + Math.floor(Math.random()*8);
+  let def = players[alvo].defesa + Math.floor(Math.random()*5);
+  let dano = Math.max(0, atq - def);
+  players[alvo].vidaAtual -= dano;
+  log.push(`<b>${players[turno].nome}</b> atacou <b>${players[alvo].nome}</b> causando <b>${dano}</b> de dano.`);
+  if (players[alvo].vidaAtual <= 0) {
+    players[alvo].vidaAtual = 0;
+    log.push(`<span style="color:#e63946"><b>${players[alvo].nome} foi derrotado!</b></span>`);
+    aliveIdxs = aliveIdxs.filter(i => i !== alvo);
+    // ajustar playerIdx se necessário
+    if (aliveIdxs.length > 0) {
+      let idxAtual = aliveIdxs.indexOf(turno);
+      playerIdx = (idxAtual+1)%aliveIdxs.length;
+    }
+    updateUI();
+    if (aliveIdxs.length === 1) return;
+    setTimeout(cpuTurn, 1200);
+    return;
+  }
+  // próximo turno
+  let idxAtual = aliveIdxs.indexOf(turno);
+  playerIdx = (idxAtual+1)%aliveIdxs.length;
+  updateUI();
+  if (!players[aliveIdxs[playerIdx]].humano) setTimeout(cpuTurn, 1200);
+}
+
+function cpuTurn() {
+  let turno = aliveIdxs[playerIdx];
+  let meu = players[turno];
+  // atacam um jogador random vivo diferente deles mesmos
+  let alvos = aliveIdxs.filter(i => i!==turno && players[i].vidaAtual>0);
+  if (alvos.length === 0) return;
+  let alvo = alvos[Math.floor(Math.random()*alvos.length)];
+  attack(alvo+1);
+}
+
+function shuffle(a) {
+  for (let i=a.length-1; i>0; i--) {
+    let j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+}
+</script>
+</body>
+</html>
