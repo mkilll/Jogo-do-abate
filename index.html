@@ -2,30 +2,30 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Gojo Base Skills Demo</title>
+  <title>Gojo Base Skills (Minimal)</title>
   <style>
-    body { background: #222; margin: 0; overflow: hidden; }
+    body { background: #1c232e; margin: 0; overflow: hidden; }
     #gameCanvas {
-      background: linear-gradient(to top, #05182d 80%, #b1eaff 100%);
+      background: linear-gradient(to top, #0a1833 70%, #b1eaff 100%);
       display: block;
       margin: 0 auto;
-      border: 3px solid #111;
-      box-shadow: 0 0 30px #000b;
+      border: 2px solid #121a2a;
+      box-shadow: 0 0 18px #000a;
     }
     #hud {
-      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-      color: #fff; background: #191c; padding: 8px 22px; border-radius: 8px;
-      font-size: 18px; font-family: sans-serif; letter-spacing: 1px;
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      color: #fff; background: #181c  ; padding: 5px 16px; border-radius: 8px;
+      font-size: 14px; font-family: 'Segoe UI', Arial, sans-serif;
       user-select: none; pointer-events: none; z-index:2;
-      min-width: 340px;
-      text-align: center;
+      min-width: 260px; text-align: center;
+      letter-spacing: 1px;
     }
     #controls {
-      position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+      position: absolute; top: 39px; left: 50%; transform: translateX(-50%);
       z-index:3;
       display: flex;
       justify-content: center;
-      gap: 24px;
+      gap: 14px;
       width: 100vw;
       pointer-events: none;
     }
@@ -35,97 +35,96 @@
       color: #222;
       border: none;
       border-radius: 5px;
-      font-size: 16px;
-      padding: 10px 22px;
+      font-size: 13px;
+      padding: 5px 15px;
       cursor: pointer;
-      margin-right:18px;
-      box-shadow: 0 0 10px #0005;
+      margin-right: 10px;
+      box-shadow: 0 0 5px #0005;
       transition: background .18s;
     }
-    #spawnBtn:hover {
-      background: #ffd60a;
-    }
+    #spawnBtn:hover { background: #ffd60a; }
     #skillsHUD {
-      position: absolute; top: 110px; left: 50%; transform: translateX(-50%);
-      background: #232a; color: #fff; border-radius: 8px; padding: 10px 12px 10px 12px;
-      font-size: 15px; z-index:10; min-width: 400px; pointer-events: none;
+      position: absolute; top: 74px; left: 50%; transform: translateX(-50%);
+      background: #181e  ; color: #fff; border-radius: 6px; padding: 4px 7px;
+      font-size: 11px; z-index:10; min-width: 180px; pointer-events: none;
       font-family: monospace;
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      align-items: flex-end;
+      display: flex; gap: 4px; justify-content: center; align-items: flex-end;
     }
     .skillBox {
-      background: #191c;
-      border: 2px solid #ffe066;
-      border-radius: 8px;
-      padding: 9px 12px 11px 12px;
-      min-width: 90px;
+      background: #111d;
+      border: 1px solid #ffe066;
+      border-radius: 5px;
+      padding: 4px 4px 4px 4px;
+      min-width: 44px;
       display: flex;
       flex-direction: column;
       align-items: center;
       position: relative;
-      box-shadow: 0 1px 8px #0008;
+      box-shadow: 0 1px 4px #0003;
       margin-bottom: 2px;
+      margin-left: 2px;
+      margin-right: 2px;
+      transition: border-color .2s, opacity .2s;
     }
     .skillBox.cooldown {
-      border-color: #9e9e9e;
-      opacity: .7;
+      border-color: #737373;
+      opacity: .45;
     }
     .skillName {
-      font-weight: bold;
-      font-size: 15px;
-      margin-bottom: 2px;
+      font-weight: 500;
+      font-size: 11px;
+      margin-bottom: 1px;
+      letter-spacing: 0.5px;
     }
     .skillKey {
-      font-size: 13px;
+      font-size: 10px;
       background: #ffe066;
       color: #201;
-      padding: 1px 8px 1px 8px;
-      border-radius: 18px;
+      padding: 0px 5px 0px 5px;
+      border-radius: 9px;
       font-weight: bold;
-      margin-bottom: 3px;
-      margin-top: 2px;
+      margin-bottom: 1px;
       letter-spacing: 1px;
+      margin-top: 1px;
     }
     .skillR {
-      position: absolute; right: 6px; top: 3px; font-size: 13px; color: #ffe066;
-      background: #232; border-radius: 7px; padding: 1px 7px;
-      font-weight: bold; border: 1px solid #ffe06699;
+      position: absolute; right: 4px; top: 2px; font-size: 9px; color: #ffe066;
+      background: #232; border-radius: 5px; padding: 0px 4px;
+      font-weight: 500; border: 1px solid #ffe06670;
     }
     .skillCD {
-      font-size: 13px;
-      margin-top: 2px;
+      font-size: 10px;
+      margin-top: 1px;
       color: #ffe066;
       background: #232c;
-      padding: 1px 7px;
-      border-radius: 10px;
-      font-weight: bold;
+      padding: 0px 4px;
+      border-radius: 7px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
     }
     #hint {
-      position: absolute; top: 8px; right: 24px; color: #fff; font-size: 14px;
-      font-family: monospace; opacity: .60; pointer-events: none;
+      position: absolute; top: 5px; right: 18px; color: #fff; font-size: 10px;
+      font-family: monospace; opacity: .40; pointer-events: none;
     }
-    @media (max-width: 700px){
-      #gameCanvas { width: 98vw; height: 58vw; }
+    @media (max-width: 800px){
+      #gameCanvas { width: 99vw; height: 44vw; }
       #hud, #controls, #skillsHUD { min-width: 0; }
-      .skillBox { min-width: 68px; font-size: 12px;}
-      .skillName { font-size: 13px;}
+      .skillBox { min-width: 24px; font-size: 8px; }
+      .skillName { font-size: 9px;}
+      .skillCD, .skillKey, .skillR { font-size: 8px;}
     }
   </style>
 </head>
 <body>
   <div id="hud">
-    ← → para andar, espaço para pular, <b>1-5</b> para skills base, <b>R</b> para interações
+    ← → para andar, espaço para pular, <b>1-5</b> para skills, <b>R</b> para interações
   </div>
-  <div id="hint">
-    Use "Spawn Inimigo" para adicionar inimigos.
-  </div>
+  <div id="hint">Use "Spawn Inimigo" para adicionar inimigos.</div>
   <div id="controls">
     <button id="spawnBtn">Spawn Inimigo</button>
   </div>
   <div id="skillsHUD"></div>
-  <canvas id="gameCanvas" width="700" height="340"></canvas>
+  <canvas id="gameCanvas" width="2000" height="700"></canvas>
   <script>
     // Sprites simples (troque se quiser)
     const gojoColor = "#aaf";
@@ -133,14 +132,14 @@
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const GRAVITY = 0.7, GROUND_Y = 256;
+    const GRAVITY = 0.7, GROUND_Y = 470;
 
     // Player
     const PLAYER = {
-      x: 100, y: GROUND_Y, vx: 0, vy: 0,
-      w: 36, h: 52,
+      x: 200, y: GROUND_Y, vx: 0, vy: 0,
+      w: 24, h: 35,
       dir: 1,
-      speed: 2.2, jumpPower: 11,
+      speed: 2.2, jumpPower: 10,
       grounded: true,
       state: "idle",
       aura: null,
@@ -168,39 +167,39 @@
         cooldown: 8,
         last: -99,
         r: true,
-        desc: "Puxa e stuna o inimigo. (R: Chutar)"
+        desc: "Puxar+Stun<br>R:Chute"
       },
       { // Vermelho
-        name: "Vermelho",
+        name: "Verm.",
         key: "2",
         cooldown: 7,
         last: -99,
         r: true,
-        desc: "Explosão vermelha (R: Teleportar e lançar invertido)"
+        desc: "Explode<br>R:TP/bola"
       },
       { // Infinito
-        name: "Infinito",
+        name: "Inf.",
         key: "3",
         cooldown: 12,
         last: -99,
         r: false,
-        desc: "Barreira: Lentidão nos inimigos"
+        desc: "Barreira: lento"
       },
-      { // Socos rápidos
-        name: "S. Rápidos",
+      { // Socos
+        name: "Socos",
         key: "4",
         cooldown: 10,
         last: -99,
         r: false,
-        desc: "5 socos, o último joga longe"
+        desc: "5x + socão"
       },
-      { // Teletransporte
-        name: "Teleporte",
+      { // Teleporte
+        name: "TP",
         key: "5",
         cooldown: 6,
         last: -99,
         r: true,
-        desc: "Vai até o inimigo (R: aparecer na frente)"
+        desc: "TP<br>R:frente"
       }
     ];
     // Skill state
@@ -233,16 +232,16 @@
       return target;
     }
     function spawnEnemy() {
-      let hp = 100+Math.random()*40;
-      let px = Math.random() > 0.5 ? canvas.width-60 : 60;
+      let hp = 60+Math.random()*35;
+      let px = Math.random() > 0.5 ? canvas.width-80 : 80;
       let side = px > canvas.width/2 ? -1 : 1;
       enemies.push({
         x: px,
         y: GROUND_Y,
-        vx: 1.2 * side,
+        vx: 1.1 * side,
         vy: 0,
-        w: 36,
-        h: 52,
+        w: 24,
+        h: 35,
         alive: true,
         hp: hp,
         mhp: hp,
@@ -263,9 +262,9 @@
         let e = nearestEnemy();
         if (!e) return;
         data.last = t;
-        PLAYER.aura = {x:e.x+e.w/2, y:e.y+e.h/2, r:0, max:55, target:e, growing:true};
+        PLAYER.aura = {x:e.x+e.w/2, y:e.y+e.h/2, r:0, max:38, target:e, growing:true};
         PLAYER.stunEnemy = e;
-        e.stunned = true; e.stunT = 120;
+        e.stunned = true; e.stunT = 100;
         e.slow = false;
       }
       // Vermelho
@@ -274,11 +273,11 @@
         if (!e) return;
         data.last = t;
         vermProj = {
-          x: PLAYER.x+PLAYER.w/2+PLAYER.dir*20,
-          y: PLAYER.y+30,
-          vx: PLAYER.dir*7,
+          x: PLAYER.x+PLAYER.w/2+PLAYER.dir*13,
+          y: PLAYER.y+19,
+          vx: PLAYER.dir*6,
           vy: 0,
-          r: 11,
+          r: 7,
           timer: 0,
           target: e,
           exploded: false
@@ -288,17 +287,17 @@
       if (idx===2) {
         data.last = t;
         PLAYER.infBarrier = true;
-        PLAYER.infTimer = 180; // 3s
+        PLAYER.infTimer = 110; // 2s
         for(let e of enemies) {
-          if(e.alive && Math.abs(e.x-PLAYER.x)<120) {
-            e.slow = true; e.slowT = 180;
+          if(e.alive && Math.abs(e.x-PLAYER.x)<70) {
+            e.slow = true; e.slowT = 110;
           }
         }
       }
       // Socos rápidos
       if (idx===3) {
         let e = nearestEnemy();
-        if (!e || Math.abs(e.x-PLAYER.x)>70) return;
+        if (!e || Math.abs(e.x-PLAYER.x)>38) return;
         data.last = t;
         PLAYER.punchAnim = 1;
         PLAYER.punchTarget = e;
@@ -314,10 +313,10 @@
         PLAYER.teleportActive = true;
         PLAYER.skillTarget = e;
         setTimeout(()=>{
-          PLAYER.x = e.x-PLAYER.dir*50;
+          PLAYER.x = e.x-PLAYER.dir*30;
           PLAYER.y = e.y;
           PLAYER.teleportActive = false;
-        },220);
+        },120);
       }
     }
     // Interações R
@@ -325,23 +324,23 @@
       // Azul: chutar inimigo
       if (PLAYER.stunEnemy && PLAYER.stunEnemy.stunned) {
         PLAYER.stunEnemy.stunned = false;
-        PLAYER.stunEnemy.vx = PLAYER.dir*8;
-        PLAYER.stunEnemy.vy = -7;
+        PLAYER.stunEnemy.vx = PLAYER.dir*7;
+        PLAYER.stunEnemy.vy = -6;
         PLAYER.stunEnemy.slow = false;
         PLAYER.stunEnemy.stunT = 0;
         PLAYER.stunEnemy = null;
       }
       // Vermelho: teleportar atrás e lançar invertido
       else if (vermProj && !vermProj.exploded && vermProj.target && vermProj.target.alive) {
-        PLAYER.x = vermProj.target.x + (PLAYER.dir===1?-48:48);
-        PLAYER.y = vermProj.target.y-10;
+        PLAYER.x = vermProj.target.x + (PLAYER.dir===1?-28:28);
+        PLAYER.y = vermProj.target.y-6;
         setTimeout(()=>{
-          vermProj.vx = -PLAYER.dir*10;
-        }, 220);
+          vermProj.vx = -PLAYER.dir*9;
+        }, 130);
       }
       // Teletransporte: Aparecer na frente do inimigo
       else if (PLAYER.skillTarget && PLAYER.skillTarget.alive && PLAYER.teleportActive) {
-        PLAYER.x = PLAYER.skillTarget.x + (PLAYER.dir===1?48:-48);
+        PLAYER.x = PLAYER.skillTarget.x + (PLAYER.dir===1?28:-28);
         PLAYER.teleportActive = false;
       }
     }
@@ -380,13 +379,13 @@
       // Aura Azul
       if (PLAYER.aura) {
         if (PLAYER.aura.growing) {
-          PLAYER.aura.r += 4;
+          PLAYER.aura.r += 2.9;
           if (PLAYER.aura.r >= PLAYER.aura.max) {
             PLAYER.aura.r = PLAYER.aura.max;
             PLAYER.aura.growing = false;
           }
         } else {
-          PLAYER.aura.r -= 2;
+          PLAYER.aura.r -= 1.5;
           if (PLAYER.aura.r <= 0) {
             PLAYER.aura = null;
           }
@@ -406,15 +405,15 @@
           vermProj.y - vermProj.r < vermProj.target.y + vermProj.target.h
         ) {
           vermProj.exploded = true;
-          vermProj.target.hp -= 35;
-          vermProj.target.vx = PLAYER.dir*4;
-          vermProj.target.vy = -5;
+          vermProj.target.hp -= 22;
+          vermProj.target.vx = PLAYER.dir*3;
+          vermProj.target.vy = -4;
           vermProj.target.slow = false;
         }
-        if (vermProj.x < -40 || vermProj.x > canvas.width+40) vermProj = null;
+        if (vermProj.x < -30 || vermProj.x > canvas.width+30) vermProj = null;
       } else if (vermProj && vermProj.exploded) {
-        vermProj.r += 5;
-        if (vermProj.r > 48) vermProj = null;
+        vermProj.r += 3;
+        if (vermProj.r > 32) vermProj = null;
       }
 
       // Infinito
@@ -427,18 +426,18 @@
       if (PLAYER.punchAnim) {
         PLAYER.punchTimer++;
         if (PLAYER.punchTarget && PLAYER.punchTarget.alive) {
-          if (PLAYER.punchStep<5 && PLAYER.punchTimer%7===0) {
-            PLAYER.punchTarget.hp -= 5;
-            PLAYER.punchTarget.vx = PLAYER.dir*2;
-            PLAYER.punchTarget.vy = -2-Math.random()*2;
-            punchFX = {x:PLAYER.punchTarget.x+PLAYER.punchTarget.w/2+Math.random()*18-9, y:PLAYER.punchTarget.y-12, t:12};
+          if (PLAYER.punchStep<5 && PLAYER.punchTimer%6===0) {
+            PLAYER.punchTarget.hp -= 3.5;
+            PLAYER.punchTarget.vx = PLAYER.dir*1.5;
+            PLAYER.punchTarget.vy = -1.5-Math.random()*1.5;
+            punchFX = {x:PLAYER.punchTarget.x+PLAYER.punchTarget.w/2+Math.random()*8-4, y:PLAYER.punchTarget.y-6, t:7};
             PLAYER.punchStep++;
           }
-          if (PLAYER.punchStep===5 && PLAYER.punchTimer===46) {
-            PLAYER.punchTarget.hp -= 15;
-            PLAYER.punchTarget.vx = PLAYER.dir*12;
-            PLAYER.punchTarget.vy = -7;
-            punchFX = {x:PLAYER.punchTarget.x+PLAYER.punchTarget.w/2, y:PLAYER.punchTarget.y-16, t:18};
+          if (PLAYER.punchStep===5 && PLAYER.punchTimer===30) {
+            PLAYER.punchTarget.hp -= 7;
+            PLAYER.punchTarget.vx = PLAYER.dir*7;
+            PLAYER.punchTarget.vy = -4;
+            punchFX = {x:PLAYER.punchTarget.x+PLAYER.punchTarget.w/2, y:PLAYER.punchTarget.y-8, t:10};
             PLAYER.punchAnim = 0; PLAYER.punchStep = 0; PLAYER.punchTimer = 0; PLAYER.canAct = true;
           }
         } else {
@@ -471,15 +470,14 @@
           if (e.slowT<=0) e.slow = false;
         }
         // Lentidão (infinito)
-        let speed = e.slow ? .5 : 1.7;
+        let speed = e.slow ? .33 : 1.12;
         let dx = PLAYER.x - e.x;
-        if (Math.abs(dx) > 8) e.vx = Math.sign(dx) * speed;
+        if (Math.abs(dx) > 6) e.vx = Math.sign(dx) * speed;
         else e.vx = 0;
         e.x += e.vx;
         e.y += e.vy;
         if (e.y < GROUND_Y) e.vy += GRAVITY;
         if (e.y > GROUND_Y) { e.y = GROUND_Y; e.vy = 0; }
-        // Dano de soco final pode flutuar
         if (e.hp <= 0) e.alive = false;
       }
 
@@ -505,9 +503,9 @@
       // Infinito barreira
       if (PLAYER.infBarrier) {
         ctx.save();
-        ctx.globalAlpha = 0.13 + 0.09*Math.sin(PLAYER.infTimer/14);
+        ctx.globalAlpha = 0.10 + 0.08*Math.sin(PLAYER.infTimer/15);
         ctx.beginPath();
-        ctx.arc(PLAYER.x+PLAYER.w/2, PLAYER.y+PLAYER.h/2, 95, 0, Math.PI*2);
+        ctx.arc(PLAYER.x+PLAYER.w/2, PLAYER.y+PLAYER.h/2, 55, 0, Math.PI*2);
         ctx.fillStyle = "#b8a8ff";
         ctx.fill();
         ctx.globalAlpha = 1;
@@ -519,9 +517,9 @@
         ctx.save();
         ctx.beginPath();
         ctx.arc(PLAYER.aura.x, PLAYER.aura.y, PLAYER.aura.r, 0, Math.PI*2);
-        ctx.fillStyle = "rgba(100,220,255,0.27)";
+        ctx.fillStyle = "rgba(100,220,255,0.18)";
         ctx.shadowColor = "#91e8ff";
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 12;
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -534,8 +532,8 @@
         ctx.arc(vermProj.x, vermProj.y, vermProj.r, 0, Math.PI*2);
         ctx.fillStyle = vermProj.exploded ? "#ffaaaa" : "#ff4444";
         ctx.shadowColor = "#faa";
-        ctx.shadowBlur = 18;
-        ctx.globalAlpha = .9;
+        ctx.shadowBlur = 8;
+        ctx.globalAlpha = .8;
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -545,11 +543,11 @@
       if (punchFX) {
         ctx.save();
         ctx.beginPath();
-        ctx.arc(punchFX.x, punchFX.y, 11, 0, Math.PI*2);
+        ctx.arc(punchFX.x, punchFX.y, 6, 0, Math.PI*2);
         ctx.fillStyle = "#fff";
-        ctx.globalAlpha = 0.8*punchFX.t/18;
+        ctx.globalAlpha = 0.7*punchFX.t/10;
         ctx.shadowColor = "#ffe066";
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 4;
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -559,26 +557,26 @@
       ctx.save();
       ctx.fillStyle = gojoColor;
       ctx.shadowColor = "#e0eaff";
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 5;
       ctx.fillRect(PLAYER.x, PLAYER.y, PLAYER.w, PLAYER.h);
       ctx.shadowBlur = 0;
       ctx.restore();
 
-      ctx.font = "bold 17px Arial";
+      ctx.font = "bold 11px Arial";
       ctx.fillStyle = "#fff";
       ctx.strokeStyle = "#222";
-      ctx.lineWidth = 3;
-      ctx.strokeText("Gojo", PLAYER.x+2, PLAYER.y-6);
-      ctx.fillText("Gojo", PLAYER.x+2, PLAYER.y-6);
+      ctx.lineWidth = 2;
+      ctx.strokeText("Gojo", PLAYER.x+2, PLAYER.y-4);
+      ctx.fillText("Gojo", PLAYER.x+2, PLAYER.y-4);
 
       // Inimigos
       for(let e of enemies) {
         if(!e.alive) continue;
         // Sombra
         ctx.save();
-        ctx.globalAlpha = 0.17;
+        ctx.globalAlpha = 0.13;
         ctx.beginPath();
-        ctx.ellipse(e.x+e.w/2, GROUND_Y+e.h-3, 15, 6, 0,0,Math.PI*2);
+        ctx.ellipse(e.x+e.w/2, GROUND_Y+e.h-2, 9, 4, 0,0,Math.PI*2);
         ctx.fillStyle = "#000";
         ctx.fill();
         ctx.restore();
@@ -591,12 +589,12 @@
         // HP bar
         ctx.save();
         ctx.fillStyle = "#222";
-        ctx.fillRect(e.x-3, e.y-13, e.w+6, 9);
+        ctx.fillRect(e.x-2, e.y-8, e.w+4, 4);
         ctx.fillStyle = "#e06666";
-        ctx.fillRect(e.x-3, e.y-13, (e.w+6)*e.hp/e.mhp, 9);
+        ctx.fillRect(e.x-2, e.y-8, (e.w+4)*e.hp/e.mhp, 4);
         ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(e.x-3, e.y-13, e.w+6, 9);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(e.x-2, e.y-8, e.w+4, 4);
         ctx.restore();
       }
     }
@@ -613,8 +611,7 @@
           <div class="skillName">${sk.name}</div>
           <div class="skillKey">${sk.key}</div>
           ${sk.r?'<div class="skillR">R</div>':''}
-          <div class="skillCD">${cd>0?cd.toFixed(1)+'s':'pronto!'}</div>
-          <div style="font-size:12px;margin-top:3px;">${sk.desc}</div>
+          <div class="skillCD">${cd>0?cd.toFixed(1)+'s':'ok'}</div>
         </div>`;
       }
       hud.innerHTML = html;
