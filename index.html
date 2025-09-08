@@ -2,158 +2,199 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Jujutsu Kaisen 2D - Batalha de Turnos</title>
+  <title>Gojo Platformer</title>
   <style>
-    body { background: #222; color: #eee; margin: 0; font-family: Arial, sans-serif; }
-    #hud { text-align: center; margin: 20px 0; }
-    #battlefield {
-      width: 700px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-end; height: 340px;
-      background: linear-gradient(to top, #111, #333 60%, #eee 100%);
-      border-radius: 12px; box-shadow: 0 0 28px #000a; overflow: hidden;
+    body { background: #222; margin: 0; overflow: hidden; }
+    #gameCanvas {
+      background: linear-gradient(to top, #05182d 80%, #b1eaff 100%);
+      display: block;
+      margin: 0 auto;
+      border: 3px solid #111;
+      box-shadow: 0 0 30px #000b;
     }
-    .charbox { width: 260px; height: 320px; position: relative; }
-    .charimg {
-      width: 220px; height: 320px; object-fit: contain;
-      filter: drop-shadow(0 8px 28px #000b);
-      background: none;
-      position: absolute; left: 20px; bottom: 0;
-      transition: transform .2s;
+    #hint {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      color: #fff; background: #191c; padding: 8px 22px; border-radius: 8px; font-size: 18px;
+      font-family: sans-serif; letter-spacing: 1px;
+      user-select: none; pointer-events: none;
     }
-    .charimg.cpu { left: 10px; transform: scaleX(-1);}
-    .charinfo {
-      position: absolute; top: 12px; left: 20px; width: 220px; text-align: left;
-      background: rgba(0,0,0,0.4); border-radius: 7px; padding: 6px 14px;
-      font-size: 15px;
-    }
-    .hpbar { height: 10px; border-radius: 6px; background: #444; margin: 2px 0;}
-    .hpval { height: 100%; border-radius: 6px 0 0 6px; background: #6cfa6c;}
-    #log { height: 88px; width: 660px; margin: 18px auto; background: #191919; border-radius: 7px; overflow-y: auto; font-size: 15px; text-align: left; padding: 8px;}
-    #controls { text-align: center; margin: 12px 0;}
-    button { background: #ffe066; color: #222; border: none; border-radius: 5px; font-size: 16px; margin: 0 8px; padding: 12px 28px; cursor: pointer;}
-    button:hover { background: #ffd60a; }
   </style>
 </head>
 <body>
-  <div id="hud">
-    <h1>Jujutsu Kaisen: Batalha de Turnos</h1>
-    <div id="controls"></div>
-  </div>
-  <div id="battlefield">
-    <div class="charbox" id="playerBox">
-      <div class="charinfo" id="playerInfo"></div>
-      <img class="charimg" id="playerImg" src="" alt="">
-    </div>
-    <div class="charbox" id="cpuBox">
-      <div class="charinfo" id="cpuInfo"></div>
-      <img class="charimg cpu" id="cpuImg" src="" alt="">
-    </div>
-  </div>
-  <div id="log"></div>
+  <div id="hint">Use ← → para andar, espaço para pular</div>
+  <canvas id="gameCanvas" width="600" height="320"></canvas>
   <script>
-    // Insira os links das suas imagens fiéis aqui ou use URLs locais
-    const SPRITES = {
-      gojo:   "https://github.com/mkilll/Jogo-do-abate/blob/main/images.jpg",
-      yuji:   "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/yuji.png",
-      nanami: "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/nanami.png"
+    // Spritesheet do Gojo (direita, esquerda, idle, pulo) - pixel art simples
+    // Recomendo substituir pelos seus próprios sprites PNG em sequence!
+    const gojoSprites = {
+      idle: [
+        // 32x48 px cada frame, idle (parado)
+        "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_idle1.png",
+        "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_idle2.png"
+      ],
+      walkRight: [
+        "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_walk1.png",
+        "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_walk2.png"
+      ],
+      walkLeft: [
+        "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_walk1_left.png",
+        "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_walk2_left.png"
+      ],
+      jump: [
+        "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_jump.png"
+      ]
     };
 
-    // Dados dos personagens
-    const CHARS = [
-      { codename: "gojo", name: "Satoru Gojo", hp: 120, atk: 34, def: 8, skills: [{name:"Limitless Kick", power:32},{name:"Purple Hollow", power:44}] },
-      { codename: "yuji", name: "Yuji Itadori", hp: 110, atk: 29, def: 11, skills: [{name:"Divergent Fist", power:27},{name:"Black Flash", power:40}] },
-      { codename: "nanami", name: "Kento Nanami", hp: 105, atk: 31, def: 13, skills: [{name:"Ratio Strike", power:29},{name:"Overtime", power:38}] }
-    ];
-
-    let player, cpu, log = [];
-
-    function showCharSelect() {
-      let html = `<b>Escolha seu personagem:</b><br>`;
-      CHARS.forEach((ch, i) => {
-        html += `<button onclick="selectChar(${i})">${ch.name}</button>`;
+    // Carregamento dos sprites
+    let loadedSprites = {};
+    let spritesToLoad = 0, spritesLoaded = 0;
+    function preloadSprites(callback) {
+      const keys = Object.keys(gojoSprites);
+      spritesToLoad = keys.reduce((sum, k) => sum + gojoSprites[k].length, 0);
+      spritesLoaded = 0;
+      keys.forEach(key => {
+        loadedSprites[key] = [];
+        gojoSprites[key].forEach((url, idx) => {
+          const img = new Image();
+          img.onload = () => {
+            loadedSprites[key][idx] = img;
+            spritesLoaded++;
+            if (spritesLoaded === spritesToLoad) callback();
+          };
+          img.onerror = () => {
+            // Mostra um retângulo colorido caso não carregue
+            const canvas = document.createElement('canvas');
+            canvas.width = 32; canvas.height = 48;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = "#fff"; ctx.fillRect(0,0,32,48);
+            ctx.fillStyle = "#1e6fff"; ctx.fillRect(4,16,24,28);
+            ctx.fillStyle = "#111"; ctx.fillRect(8,22,16,10);
+            loadedSprites[key][idx] = canvas;
+            spritesLoaded++;
+            if (spritesLoaded === spritesToLoad) callback();
+          };
+          img.src = url;
+        });
       });
-      document.getElementById('controls').innerHTML = html;
-      document.getElementById('log').innerHTML = '';
-      setCharInfo(null, null);
     }
 
-    window.selectChar = function(i) {
-      player = {...CHARS[i], curhp: CHARS[i].hp};
-      const cpuIdx = (i+1)%3;
-      cpu = {...CHARS[cpuIdx], curhp: CHARS[cpuIdx].hp};
-      document.getElementById('log').innerHTML = `<b>Você escolheu ${player.name}.</b><br>Oponente: ${cpu.name}.<br>Seu turno!`;
-      setCharInfo(player, cpu);
-      showPlayerTurn();
-    }
+    // Variáveis do jogo
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const GRAVITY = 0.7;
+    const GROUND_Y = 256;
+    const PLAYER = {
+      x: 100, y: GROUND_Y, vx: 0, vy: 0,
+      w: 32, h: 48,
+      speed: 2.2, jumpPower: 11,
+      dir: 1, // 1 = direita, -1 = esquerda
+      grounded: true,
+      animTimer: 0,
+      animFrame: 0,
+      state: "idle" // idle, walkRight, walkLeft, jump
+    };
 
-    function showPlayerTurn() {
-      if (player.curhp <= 0 || cpu.curhp <= 0) {endBattle(); return;}
-      let html = '<b>Sua vez! Escolha um ataque:</b><br>';
-      player.skills.forEach((s, idx) => {
-        html += `<button onclick="playerAttack(${idx})">${s.name}</button>`;
-      });
-      document.getElementById('controls').innerHTML = html;
-    }
+    // Input
+    let keys = {};
+    document.addEventListener('keydown', e => {
+      if (["ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+      keys[e.key] = true;
+    });
+    document.addEventListener('keyup', e => {
+      keys[e.key] = false;
+    });
 
-    window.playerAttack = function(skillIdx) {
-      const skill = player.skills[skillIdx];
-      let dano = skill.power + Math.floor(Math.random()*6) - cpu.def;
-      if (dano < 0) dano = 0;
-      cpu.curhp -= dano;
-      if (cpu.curhp < 0) cpu.curhp = 0;
-      logMsg(`<span style="color:#6cfa6c;"><b>${player.name}</b> usou <b>${skill.name}</b>! Causou <b>${dano}</b> de dano.</span>`);
-      setCharInfo(player, cpu);
-      setTimeout(cpuTurn, 1500);
-    }
-
-    function cpuTurn() {
-      if (player.curhp <= 0 || cpu.curhp <= 0) {endBattle(); return;}
-      const skillIdx = Math.floor(Math.random() * cpu.skills.length);
-      const skill = cpu.skills[skillIdx];
-      let dano = skill.power + Math.floor(Math.random()*6) - player.def;
-      if (dano < 0) dano = 0;
-      player.curhp -= dano;
-      if (player.curhp < 0) player.curhp = 0;
-      logMsg(`<span style="color:#fa6c6c;"><b>${cpu.name}</b> usou <b>${skill.name}</b>! Causou <b>${dano}</b> de dano.</span>`);
-      setCharInfo(player, cpu);
-      if (player.curhp > 0 && cpu.curhp > 0) {
-        setTimeout(showPlayerTurn, 1500);
+    // Lógica principal
+    function gameLoop() {
+      // Lógica de movimentação
+      if (keys["ArrowLeft"]) {
+        PLAYER.vx = -PLAYER.speed;
+        PLAYER.dir = -1;
+        if (PLAYER.grounded) PLAYER.state = "walkLeft";
+      } else if (keys["ArrowRight"]) {
+        PLAYER.vx = PLAYER.speed;
+        PLAYER.dir = 1;
+        if (PLAYER.grounded) PLAYER.state = "walkRight";
       } else {
-        setTimeout(endBattle, 800);
+        PLAYER.vx = 0;
+        if (PLAYER.grounded) PLAYER.state = "idle";
       }
+      // Pulo
+      if ((keys[" "] || keys["ArrowUp"]) && PLAYER.grounded) {
+        PLAYER.vy = -PLAYER.jumpPower;
+        PLAYER.grounded = false;
+        PLAYER.state = "jump";
+      }
+
+      // Física
+      PLAYER.x += PLAYER.vx;
+      PLAYER.y += PLAYER.vy;
+      if (!PLAYER.grounded) PLAYER.vy += GRAVITY;
+      // Chão
+      if (PLAYER.y >= GROUND_Y) {
+        PLAYER.y = GROUND_Y;
+        PLAYER.vy = 0;
+        PLAYER.grounded = true;
+        if (PLAYER.vx === 0) PLAYER.state = "idle";
+        else PLAYER.state = PLAYER.dir === 1 ? "walkRight" : "walkLeft";
+      }
+      // Limites laterais
+      PLAYER.x = Math.max(0, Math.min(canvas.width-PLAYER.w, PLAYER.x));
+
+      // Animação
+      PLAYER.animTimer++;
+      if (PLAYER.state === "idle") {
+        if (PLAYER.animTimer % 20 === 0) PLAYER.animFrame = (PLAYER.animFrame+1)%loadedSprites.idle.length;
+      } else if (PLAYER.state === "walkRight" || PLAYER.state === "walkLeft") {
+        if (PLAYER.animTimer % 8 === 0) PLAYER.animFrame = (PLAYER.animFrame+1)%loadedSprites.walkRight.length;
+      } else if (PLAYER.state === "jump") {
+        PLAYER.animFrame = 0;
+      }
+      // Desenho
+      draw();
+      requestAnimationFrame(gameLoop);
     }
 
-    function endBattle() {
-      document.getElementById('controls').innerHTML = `<button onclick="showCharSelect()">Jogar Novamente</button>`;
-      if (player.curhp <= 0 && cpu.curhp <= 0)
-        logMsg(`<b>Empate!</b>`);
-      else if (player.curhp <= 0)
-        logMsg(`<b style="color:#fa6c6c;">Você perdeu!</b>`);
-      else
-        logMsg(`<b style="color:#6cfa6c;">Você venceu!</b>`);
+    // Draw
+    function draw() {
+      // Fundo
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      // Chão
+      ctx.fillStyle = "#4db04d";
+      ctx.fillRect(0, GROUND_Y+PLAYER.h-8, canvas.width, 40);
+
+      // Sombra
+      ctx.save();
+      ctx.globalAlpha = 0.21;
+      ctx.beginPath();
+      ctx.ellipse(PLAYER.x+PLAYER.w/2, GROUND_Y+PLAYER.h-2, 18, 7, 0,0,Math.PI*2);
+      ctx.fillStyle = "#000";
+      ctx.fill();
+      ctx.restore();
+
+      // Jogador (Gojo)
+      let sprite;
+      if (PLAYER.state === "idle") sprite = loadedSprites.idle[PLAYER.animFrame];
+      else if (PLAYER.state === "walkRight") sprite = loadedSprites.walkRight[PLAYER.animFrame];
+      else if (PLAYER.state === "walkLeft") sprite = loadedSprites.walkLeft[PLAYER.animFrame];
+      else if (PLAYER.state === "jump") sprite = loadedSprites.jump[0];
+      else sprite = loadedSprites.idle[0];
+
+      ctx.drawImage(sprite, PLAYER.x, PLAYER.y, PLAYER.w, PLAYER.h);
+
+      // Nome
+      ctx.font = "bold 18px Arial";
+      ctx.fillStyle = "#fff";
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 3;
+      ctx.strokeText("Gojo", PLAYER.x+2, PLAYER.y-6);
+      ctx.fillText("Gojo", PLAYER.x+2, PLAYER.y-6);
     }
 
-    function logMsg(msg) {
-      log.unshift(msg);
-      document.getElementById('log').innerHTML = log.slice(0,7).join('<br>');
-    }
-
-    function setCharInfo(p, c) {
-      document.getElementById('playerImg').src = p ? SPRITES[p.codename] : '';
-      document.getElementById('cpuImg').src = c ? SPRITES[c.codename] : '';
-      document.getElementById('playerInfo').innerHTML = p ? `
-        <b>${p.name}</b><br>
-        HP: ${p.curhp}/${p.hp}
-        <div class="hpbar"><div class="hpval" style="width:${Math.max(0, p.curhp/p.hp*100)}%"></div></div>
-        ATK: ${p.atk} | DEF: ${p.def}
-      ` : '';
-      document.getElementById('cpuInfo').innerHTML = c ? `
-        <b>${c.name}</b><br>
-        HP: ${c.curhp}/${c.hp}
-        <div class="hpbar"><div class="hpval" style="width:${Math.max(0, c.curhp/c.hp*100)}%"></div></div>
-        ATK: ${c.atk} | DEF: ${c.def}
-      ` : '';
-    }
-    showCharSelect();
+    // Iniciar depois de sprites carregados
+    preloadSprites(() => {
+      requestAnimationFrame(gameLoop);
+    });
   </script>
 </body>
 </html>
