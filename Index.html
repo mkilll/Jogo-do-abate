@@ -1,101 +1,215 @@
-import random
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Jujutsu Aisen: Jogo do Abate</title>
+  <style>
+    body {
+      background: #222;
+      color: #eee;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      text-align: center;
+      padding: 0;
+      margin: 0;
+    }
+    h1 {
+      color: #ffe066;
+      margin-top: 30px;
+    }
+    #game {
+      background: #333;
+      max-width: 400px;
+      margin: 40px auto;
+      border-radius: 10px;
+      box-shadow: 0 0 20px #0008;
+      padding: 24px;
+    }
+    button, select {
+      background: #ffe066;
+      color: #222;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      margin: 8px 4px;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover, select:hover {
+      background: #ffbe0b;
+    }
+    .char-status {
+      margin: 22px 0;
+      background: #222;
+      border-radius: 7px;
+      padding: 10px;
+    }
+    .char-status span {
+      font-weight: bold;
+      color: #ffe066;
+    }
+    #log {
+      background: #191919;
+      height: 120px;
+      overflow-y: auto;
+      border-radius: 7px;
+      font-size: 15px;
+      margin-top: 20px;
+      text-align: left;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jujutsu Aisen: Jogo do Abate</h1>
+  <div id="game">
+    <div>
+      <label for="playerChar">Escolha seu personagem:</label>
+      <select id="playerChar">
+        <option value="gojo">Satoru Gojo</option>
+        <option value="yuji">Yuji Itadori</option>
+        <option value="nanami">Kento Nanami</option>
+      </select>
+      <button onclick="startGame()">Iniciar Jogo</button>
+    </div>
+    <div id="status" style="display:none">
+      <div class="char-status" id="p1"></div>
+      <div class="char-status" id="p2"></div>
+      <div class="char-status" id="p3"></div>
+      <div>
+        <button id="atk1" onclick="attack(1)" style="display:none"></button>
+        <button id="atk2" onclick="attack(2)" style="display:none"></button>
+        <button id="atk3" onclick="attack(3)" style="display:none"></button>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+<script>
+const chars = {
+  gojo: {
+    nome: "Satoru Gojo",
+    vida: 120,
+    ataque: 35,
+    defesa: 7,
+    especial: "Limitless"
+  },
+  yuji: {
+    nome: "Yuji Itadori",
+    vida: 110,
+    ataque: 30,
+    defesa: 10,
+    especial: "Divergent Fist"
+  },
+  nanami: {
+    nome: "Kento Nanami",
+    vida: 105,
+    ataque: 32,
+    defesa: 12,
+    especial: "Ratio Technique"
+  }
+};
 
-class Personagem:
-    def __init__(self, nome, vida, ataque, especial, especial_nome):
-        self.nome = nome
-        self.vida = vida
-        self.ataque = ataque
-        self.especial = especial
-        self.especial_nome = especial_nome
-        self.especial_usado = False
+let players = [];
+let playerIdx = 0;
+let aliveIdxs = [];
+let log = [];
 
-    def atacar(self, outro):
-        dano = random.randint(self.ataque - 2, self.ataque + 2)
-        outro.vida -= dano
-        print(f"{self.nome} ataca {outro.nome} e causa {dano} de dano!")
+function startGame() {
+  const select = document.getElementById("playerChar");
+  const escolha = select.value;
+  // embaralhar personagens para cpu
+  let all = ["gojo", "yuji", "nanami"];
+  all = all.filter(c => c !== escolha);
+  shuffle(all);
+  players = [
+    { ...chars[escolha], id: 1, humano: true, vidaAtual: chars[escolha].vida },
+    { ...chars[all[0]], id: 2, humano: false, vidaAtual: chars[all[0]].vida },
+    { ...chars[all[1]], id: 3, humano: false, vidaAtual: chars[all[1]].vida },
+  ];
+  playerIdx = 0;
+  aliveIdxs = [0,1,2];
+  log = [];
+  document.getElementById("status").style.display = '';
+  updateUI();
+}
 
-    def usar_especial(self, outro):
-        if not self.especial_usado:
-            dano = self.especial
-            outro.vida -= dano
-            print(f"{self.nome} usa {self.especial_nome} em {outro.nome} e causa {dano} de dano!")
-            self.especial_usado = True
-        else:
-            print(f"{self.nome} já usou seu ataque especial!")
+function updateUI() {
+  for (let i=0;i<3;i++) {
+    let p = players[i];
+    let status = `<span>${p.nome}</span> — Vida: ${p.vidaAtual} / ${p.vida} | Ataque: ${p.ataque} | Defesa: ${p.defesa} | Especial: ${p.especial}`;
+    if (p.vidaAtual <= 0) status += " <b style='color:#e63946;'>(Derrotado)</b>";
+    document.getElementById('p'+(i+1)).innerHTML = status;
+  }
+  // mostrar botões de ataque se turno do jogador
+  let turno = aliveIdxs[playerIdx];
+  let p = players[turno];
+  let you = p.humano;
+  for (let i=1;i<=3;i++) {
+    let btn = document.getElementById('atk'+i);
+    if (you && players[i-1].vidaAtual>0 && i-1!==turno) {
+      btn.style.display = '';
+      btn.innerText = `Atacar ${players[i-1].nome}`;
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+  // mostrar log
+  document.getElementById('log').innerHTML = log.slice(-8).join("<br>");
+  // se fim de jogo
+  if (aliveIdxs.length === 1) {
+    let vencedor = players[aliveIdxs[0]];
+    log.push(`<b style="color:#aaffaa">Vencedor: ${vencedor.nome}!</b>`);
+    document.getElementById('log').innerHTML = log.slice(-8).join("<br>");
+    for (let i=1;i<=3;i++) document.getElementById('atk'+i).style.display='none';
+  }
+}
 
-    def esta_vivo(self):
-        return self.vida > 0
+function attack(idx) {
+  let turno = aliveIdxs[playerIdx];
+  let alvo = idx-1;
+  if (players[alvo].vidaAtual <= 0 || alvo === turno) return;
+  let atq = players[turno].ataque + Math.floor(Math.random()*8);
+  let def = players[alvo].defesa + Math.floor(Math.random()*5);
+  let dano = Math.max(0, atq - def);
+  players[alvo].vidaAtual -= dano;
+  log.push(`<b>${players[turno].nome}</b> atacou <b>${players[alvo].nome}</b> causando <b>${dano}</b> de dano.`);
+  if (players[alvo].vidaAtual <= 0) {
+    players[alvo].vidaAtual = 0;
+    log.push(`<span style="color:#e63946"><b>${players[alvo].nome} foi derrotado!</b></span>`);
+    aliveIdxs = aliveIdxs.filter(i => i !== alvo);
+    // ajustar playerIdx se necessário
+    if (aliveIdxs.length > 0) {
+      let idxAtual = aliveIdxs.indexOf(turno);
+      playerIdx = (idxAtual+1)%aliveIdxs.length;
+    }
+    updateUI();
+    if (aliveIdxs.length === 1) return;
+    setTimeout(cpuTurn, 1200);
+    return;
+  }
+  // próximo turno
+  let idxAtual = aliveIdxs.indexOf(turno);
+  playerIdx = (idxAtual+1)%aliveIdxs.length;
+  updateUI();
+  if (!players[aliveIdxs[playerIdx]].humano) setTimeout(cpuTurn, 1200);
+}
 
-def escolher_personagem():
-    print("Escolha seu personagem:")
-    print("1 - Honrado (Gojo): Vida 30 / Ataque 7 / Especial: 20")
-    print("2 - Vessel (Yuji): Vida 35 / Ataque 6 / Especial: 15")
-    print("3 - Misterioso: Vida 28 / Ataque 8 / Especial: 18")
-    escolha = input("Digite o número do personagem: ")
-    if escolha == "1":
-        return Personagem("Honrado", 30, 7, 20, "Vazio Infinito")
-    elif escolha == "2":
-        return Personagem("Vessel", 35, 6, 15, "Impacto Demoníaco")
-    else:
-        return Personagem("Misterioso", 28, 8, 18, "Sombra Oculta")
+function cpuTurn() {
+  let turno = aliveIdxs[playerIdx];
+  let meu = players[turno];
+  // atacam um jogador random vivo diferente deles mesmos
+  let alvos = aliveIdxs.filter(i => i!==turno && players[i].vidaAtual>0);
+  if (alvos.length === 0) return;
+  let alvo = alvos[Math.floor(Math.random()*alvos.length)];
+  attack(alvo+1);
+}
 
-def criar_inimigos(jogador_nome):
-    personagens = [
-        Personagem("Honrado", 30, 7, 20, "Vazio Infinito"),
-        Personagem("Vessel", 35, 6, 15, "Impacto Demoníaco"),
-        Personagem("Misterioso", 28, 8, 18, "Sombra Oculta"),
-    ]
-    return [p for p in personagens if p.nome != jogador_nome]
-
-def batalha(jogador, inimigos):
-    rodada = 1
-    while jogador.esta_vivo() and any(i.esta_vivo() for i in inimigos):
-        print(f"\n--- Rodada {rodada} ---")
-        print(f"Sua vida: {jogador.vida}")
-        print("Inimigos:")
-        for i, inimigo in enumerate(inimigos):
-            print(f"{i+1} - {inimigo.nome}: Vida {inimigo.vida}{' (morto)' if not inimigo.esta_vivo() else ''}")
-
-        # Escolha do jogador
-        vivos = [i for i in inimigos if i.esta_vivo()]
-        if not vivos:
-            break
-        alvo = vivos[0] if len(vivos) == 1 else None
-        while alvo is None:
-            escolha = input(f"Escolha o inimigo para atacar (1-{len(inimigos)}): ")
-            try:
-                idx = int(escolha) - 1
-                if 0 <= idx < len(inimigos) and inimigos[idx].esta_vivo():
-                    alvo = inimigos[idx]
-                else:
-                    print("Escolha inválida!")
-            except:
-                print("Digite um número válido.")
-
-        acao = input("Digite 'a' para ataque normal ou 'e' para ataque especial: ")
-        if acao == "e":
-            jogador.usar_especial(alvo)
-        else:
-            jogador.atacar(alvo)
-
-        # Inimigos atacam
-        for inimigo in inimigos:
-            if inimigo.esta_vivo():
-                if random.random() < 0.2 and not inimigo.especial_usado:
-                    inimigo.usar_especial(jogador)
-                else:
-                    inimigo.atacar(jogador)
-                if not jogador.esta_vivo():
-                    break
-        rodada += 1
-
-    if jogador.esta_vivo():
-        print("\nVocê venceu todos os inimigos!")
-    else:
-        print("\nVocê foi derrotado...")
-
-if __name__ == "__main__":
-    print("Bem-vindo ao Jogo do Abate (Jujutsu Kaisen)!")
-    jogador = escolher_personagem()
-    inimigos = criar_inimigos(jogador.nome)
-    batalha(jogador, inimigos)
+function shuffle(a) {
+  for (let i=a.length-1; i>0; i--) {
+    let j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+}
+</script>
+</body>
+</html>
