@@ -2,92 +2,98 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Jujutsu Kaisen 3D Turn Battle</title>
+  <title>Jujutsu Kaisen 2D - Batalha de Turnos</title>
   <style>
-    body { margin: 0; background: #181818; color: #fff; font-family: sans-serif; }
-    #hud { position: fixed; top: 10px; left: 0; right: 0; text-align: center; z-index: 2; }
-    #log { height: 90px; overflow-y: auto; background: #222; border-radius: 8px; margin: 10px auto; max-width: 480px; font-size: 15px; padding: 8px;}
-    #controls { margin: 12px auto; }
-    button { background: #ffe066; color: #222; border: none; border-radius: 5px; font-size: 16px; margin: 0 4px; padding: 10px 20px; cursor: pointer;}
-    button:hover { background: #ffd60a; }
-    .hpbar { height: 14px; border-radius: 6px; background: #444; margin: 4px 0;}
+    body { background: #222; color: #eee; margin: 0; font-family: Arial, sans-serif; }
+    #hud { text-align: center; margin: 20px 0; }
+    #battlefield {
+      width: 700px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-end; height: 340px;
+      background: linear-gradient(to top, #111, #333 60%, #eee 100%);
+      border-radius: 12px; box-shadow: 0 0 28px #000a; overflow: hidden;
+    }
+    .charbox { width: 260px; height: 320px; position: relative; }
+    .charimg {
+      width: 220px; height: 320px; object-fit: contain;
+      filter: drop-shadow(0 8px 28px #000b);
+      background: none;
+      position: absolute; left: 20px; bottom: 0;
+      transition: transform .2s;
+    }
+    .charimg.cpu { left: 10px; transform: scaleX(-1);}
+    .charinfo {
+      position: absolute; top: 12px; left: 20px; width: 220px; text-align: left;
+      background: rgba(0,0,0,0.4); border-radius: 7px; padding: 6px 14px;
+      font-size: 15px;
+    }
+    .hpbar { height: 10px; border-radius: 6px; background: #444; margin: 2px 0;}
     .hpval { height: 100%; border-radius: 6px 0 0 6px; background: #6cfa6c;}
+    #log { height: 88px; width: 660px; margin: 18px auto; background: #191919; border-radius: 7px; overflow-y: auto; font-size: 15px; text-align: left; padding: 8px;}
+    #controls { text-align: center; margin: 12px 0;}
+    button { background: #ffe066; color: #222; border: none; border-radius: 5px; font-size: 16px; margin: 0 8px; padding: 12px 28px; cursor: pointer;}
+    button:hover { background: #ffd60a; }
   </style>
 </head>
 <body>
   <div id="hud">
-    <div id="status"></div>
-    <div id="log"></div>
+    <h1>Jujutsu Kaisen: Batalha de Turnos</h1>
     <div id="controls"></div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <div id="battlefield">
+    <div class="charbox" id="playerBox">
+      <div class="charinfo" id="playerInfo"></div>
+      <img class="charimg" id="playerImg" src="" alt="">
+    </div>
+    <div class="charbox" id="cpuBox">
+      <div class="charinfo" id="cpuInfo"></div>
+      <img class="charimg cpu" id="cpuImg" src="" alt="">
+    </div>
+  </div>
+  <div id="log"></div>
   <script>
-    // Personagens: Gojo, Yuji, Nanami
-    const CHARACTERS = [
-      {
-        codename: 'gojo',
-        name: 'Satoru Gojo',
-        color: 0x33c3fa,
-        maxhp: 120,
-        atk: 34,
-        def: 8,
-        skills: [{name: 'Infinity Kick', power: 32}, {name: 'Limitless Pulse', power: 45}],
-      },
-      {
-        codename: 'yuji',
-        name: 'Yuji Itadori',
-        color: 0xfa3333,
-        maxhp: 110,
-        atk: 29,
-        def: 11,
-        skills: [{name: 'Divergent Fist', power: 28}, {name: 'Black Flash', power: 42}],
-      },
-      {
-        codename: 'nanami',
-        name: 'Kento Nanami',
-        color: 0xfaca33,
-        maxhp: 105,
-        atk: 31,
-        def: 13,
-        skills: [{name: 'Ratio Strike', power: 30}, {name: 'Overtime', power: 38}],
-      }
+    // Insira os links das suas imagens fiéis aqui ou use URLs locais
+    const SPRITES = {
+      gojo:   "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo.png",
+      yuji:   "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/yuji.png",
+      nanami: "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/nanami.png"
+    };
+
+    // Dados dos personagens
+    const CHARS = [
+      { codename: "gojo", name: "Satoru Gojo", hp: 120, atk: 34, def: 8, skills: [{name:"Limitless Kick", power:32},{name:"Purple Hollow", power:44}] },
+      { codename: "yuji", name: "Yuji Itadori", hp: 110, atk: 29, def: 11, skills: [{name:"Divergent Fist", power:27},{name:"Black Flash", power:40}] },
+      { codename: "nanami", name: "Kento Nanami", hp: 105, atk: 31, def: 13, skills: [{name:"Ratio Strike", power:29},{name:"Overtime", power:38}] }
     ];
 
-    // Escolha dos personagens (player x cpu)
-    let player = {...CHARACTERS[0], curhp: CHARACTERS[0].maxhp};
-    let cpu = {...CHARACTERS[1], curhp: CHARACTERS[1].maxhp};
+    let player, cpu, log = [];
 
-    // Seleção inicial
-    let gameStarted = false;
     function showCharSelect() {
       let html = `<b>Escolha seu personagem:</b><br>`;
-      CHARACTERS.forEach((ch, i) => {
+      CHARS.forEach((ch, i) => {
         html += `<button onclick="selectChar(${i})">${ch.name}</button>`;
       });
       document.getElementById('controls').innerHTML = html;
-      document.getElementById('status').innerHTML = '';
       document.getElementById('log').innerHTML = '';
+      setCharInfo(null, null);
     }
+
     window.selectChar = function(i) {
-      player = {...CHARACTERS[i], curhp: CHARACTERS[i].maxhp};
+      player = {...CHARS[i], curhp: CHARS[i].hp};
       const cpuIdx = (i+1)%3;
-      cpu = {...CHARACTERS[cpuIdx], curhp: CHARACTERS[cpuIdx].maxhp};
-      gameStarted = true;
+      cpu = {...CHARS[cpuIdx], curhp: CHARS[cpuIdx].hp};
       document.getElementById('log').innerHTML = `<b>Você escolheu ${player.name}.</b><br>Oponente: ${cpu.name}.<br>Seu turno!`;
-      updateStatus();
+      setCharInfo(player, cpu);
       showPlayerTurn();
     }
 
-    // Batalha por turnos
-    let playerTurn = true;
     function showPlayerTurn() {
       if (player.curhp <= 0 || cpu.curhp <= 0) {endBattle(); return;}
-      let html = '';
+      let html = '<b>Sua vez! Escolha um ataque:</b><br>';
       player.skills.forEach((s, idx) => {
         html += `<button onclick="playerAttack(${idx})">${s.name}</button>`;
       });
       document.getElementById('controls').innerHTML = html;
     }
+
     window.playerAttack = function(skillIdx) {
       const skill = player.skills[skillIdx];
       let dano = skill.power + Math.floor(Math.random()*6) - cpu.def;
@@ -95,12 +101,12 @@
       cpu.curhp -= dano;
       if (cpu.curhp < 0) cpu.curhp = 0;
       logMsg(`<span style="color:#6cfa6c;"><b>${player.name}</b> usou <b>${skill.name}</b>! Causou <b>${dano}</b> de dano.</span>`);
-      updateStatus();
+      setCharInfo(player, cpu);
       setTimeout(cpuTurn, 1500);
     }
+
     function cpuTurn() {
       if (player.curhp <= 0 || cpu.curhp <= 0) {endBattle(); return;}
-      // CPU escolhe skill aleatória
       const skillIdx = Math.floor(Math.random() * cpu.skills.length);
       const skill = cpu.skills[skillIdx];
       let dano = skill.power + Math.floor(Math.random()*6) - player.def;
@@ -108,13 +114,14 @@
       player.curhp -= dano;
       if (player.curhp < 0) player.curhp = 0;
       logMsg(`<span style="color:#fa6c6c;"><b>${cpu.name}</b> usou <b>${skill.name}</b>! Causou <b>${dano}</b> de dano.</span>`);
-      updateStatus();
+      setCharInfo(player, cpu);
       if (player.curhp > 0 && cpu.curhp > 0) {
         setTimeout(showPlayerTurn, 1500);
       } else {
         setTimeout(endBattle, 800);
       }
     }
+
     function endBattle() {
       document.getElementById('controls').innerHTML = `<button onclick="showCharSelect()">Jogar Novamente</button>`;
       if (player.curhp <= 0 && cpu.curhp <= 0)
@@ -124,82 +131,29 @@
       else
         logMsg(`<b style="color:#6cfa6c;">Você venceu!</b>`);
     }
+
     function logMsg(msg) {
-      const log = document.getElementById('log');
-      log.innerHTML = msg + '<br>' + log.innerHTML;
-    }
-    function updateStatus() {
-      let bar = (hp, max) => `<div class="hpbar"><div class="hpval" style="width:${Math.max(0, hp/max*100)}%;"></div></div>`;
-      document.getElementById('status').innerHTML =
-        `<b>${player.name}</b> HP: ${player.curhp}/${player.maxhp}${bar(player.curhp, player.maxhp)}<br>
-         <b>${cpu.name}</b> HP: ${cpu.curhp}/${cpu.maxhp}${bar(cpu.curhp, cpu.maxhp)}`;
+      log.unshift(msg);
+      document.getElementById('log').innerHTML = log.slice(0,7).join('<br>');
     }
 
-    // Three.js 3D Scene
-    let scene = new THREE.Scene();
-    let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-    let renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    // Luz ambiente e direcional
-    let light = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(light);
-    let dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    dirLight.position.set(3, 10, 10);
-    scene.add(dirLight);
-
-    // Solo
-    let plane = new THREE.Mesh(new THREE.PlaneGeometry(12, 8), new THREE.MeshStandardMaterial({color:0x232323}));
-    plane.rotation.x = -Math.PI/2;
-    scene.add(plane);
-
-    // Modelos 3D Simples (cubos coloridos representando cada personagem)
-    let models = {};
-    function makeCharModel(char, x) {
-      let geo = new THREE.BoxGeometry(1.2, 2.5, 1.2);
-      let mat = new THREE.MeshStandardMaterial({color:char.color});
-      let mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x, 1.3, 0);
-      scene.add(mesh);
-      return mesh;
+    function setCharInfo(p, c) {
+      document.getElementById('playerImg').src = p ? SPRITES[p.codename] : '';
+      document.getElementById('cpuImg').src = c ? SPRITES[c.codename] : '';
+      document.getElementById('playerInfo').innerHTML = p ? `
+        <b>${p.name}</b><br>
+        HP: ${p.curhp}/${p.hp}
+        <div class="hpbar"><div class="hpval" style="width:${Math.max(0, p.curhp/p.hp*100)}%"></div></div>
+        ATK: ${p.atk} | DEF: ${p.def}
+      ` : '';
+      document.getElementById('cpuInfo').innerHTML = c ? `
+        <b>${c.name}</b><br>
+        HP: ${c.curhp}/${c.hp}
+        <div class="hpbar"><div class="hpval" style="width:${Math.max(0, c.curhp/c.hp*100)}%"></div></div>
+        ATK: ${c.atk} | DEF: ${c.def}
+      ` : '';
     }
-    function updateModels() {
-      // Remove modelos antigos
-      Object.values(models).forEach(m => scene.remove(m));
-      models.player = makeCharModel(player, -3);
-      models.cpu = makeCharModel(cpu, 3);
-    }
-
-    // Câmera
-    camera.position.set(0,4,10);
-    camera.lookAt(0,1,0);
-
-    // Render Loop
-    function animate() {
-      requestAnimationFrame(animate);
-      if (models.player) models.player.rotation.y += 0.01;
-      if (models.cpu) models.cpu.rotation.y -= 0.01;
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    // Responsivo
-    window.addEventListener('resize',()=>{
-      camera.aspect = window.innerWidth/window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    // Início
     showCharSelect();
-
-    // Atualiza modelos quando o combate começar/novo personagem
-    const origSelectChar = window.selectChar;
-    window.selectChar = function(idx) {
-      origSelectChar(idx);
-      updateModels();
-    };
   </script>
 </body>
 </html>
