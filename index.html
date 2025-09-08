@@ -2,214 +2,204 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Jujutsu Aisen: Jogo do Abate</title>
+  <title>Jujutsu Kaisen 3D Turn Battle</title>
   <style>
-    body {
-      background: #222;
-      color: #eee;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      text-align: center;
-      padding: 0;
-      margin: 0;
-    }
-    h1 {
-      color: #ffe066;
-      margin-top: 30px;
-    }
-    #game {
-      background: #333;
-      max-width: 400px;
-      margin: 40px auto;
-      border-radius: 10px;
-      box-shadow: 0 0 20px #0008;
-      padding: 24px;
-    }
-    button, select {
-      background: #ffe066;
-      color: #222;
-      border: none;
-      border-radius: 5px;
-      font-size: 16px;
-      margin: 8px 4px;
-      padding: 10px 20px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button:hover, select:hover {
-      background: #ffbe0b;
-    }
-    .char-status {
-      margin: 22px 0;
-      background: #222;
-      border-radius: 7px;
-      padding: 10px;
-    }
-    .char-status span {
-      font-weight: bold;
-      color: #ffe066;
-    }
-    #log {
-      background: #191919;
-      height: 120px;
-      overflow-y: auto;
-      border-radius: 7px;
-      font-size: 15px;
-      margin-top: 20px;
-      text-align: left;
-      padding: 10px;
-    }
+    body { margin: 0; background: #181818; color: #fff; font-family: sans-serif; }
+    #hud { position: fixed; top: 10px; left: 0; right: 0; text-align: center; z-index: 2; }
+    #log { height: 90px; overflow-y: auto; background: #222; border-radius: 8px; margin: 10px auto; max-width: 480px; font-size: 15px; padding: 8px;}
+    #controls { margin: 12px auto; }
+    button { background: #ffe066; color: #222; border: none; border-radius: 5px; font-size: 16px; margin: 0 4px; padding: 10px 20px; cursor: pointer;}
+    button:hover { background: #ffd60a; }
+    .hpbar { height: 14px; border-radius: 6px; background: #444; margin: 4px 0;}
+    .hpval { height: 100%; border-radius: 6px 0 0 6px; background: #6cfa6c;}
   </style>
 </head>
 <body>
-  <h1>Jujutsu Aisen: Jogo do Abate</h1>
-  <div id="game">
-    <div>
-      <label for="playerChar">Escolha seu personagem:</label>
-      <select id="playerChar">
-        <option value="gojo">Satoru Gojo</option>
-        <option value="yuji">Yuji Itadori</option>
-        <option value="nanami">Kento Nanami</option>
-      </select>
-      <button onclick="startGame()">Iniciar Jogo</button>
-    </div>
-    <div id="status" style="display:none">
-      <div class="char-status" id="p1"></div>
-      <div class="char-status" id="p2"></div>
-      <div class="char-status" id="p3"></div>
-      <div>
-        <button id="atk1" onclick="attack(1)" style="display:none"></button>
-        <button id="atk2" onclick="attack(2)" style="display:none"></button>
-        <button id="atk3" onclick="attack(3)" style="display:none"></button>
-      </div>
-      <div id="log"></div>
-    </div>
+  <div id="hud">
+    <div id="status"></div>
+    <div id="log"></div>
+    <div id="controls"></div>
   </div>
-<script>
-const chars = {
-  gojo: {
-    nome: "Satoru Gojo",
-    vida: 120,
-    ataque: 35,
-    defesa: 7,
-    especial: "Limitless"
-  },
-  yuji: {
-    nome: "Yuji Itadori",
-    vida: 110,
-    ataque: 30,
-    defesa: 10,
-    especial: "Divergent Fist"
-  },
-  nanami: {
-    nome: "Kento Nanami",
-    vida: 105,
-    ataque: 32,
-    defesa: 12,
-    especial: "Ratio Technique"
-  }
-};
+  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <script>
+    // Personagens: Gojo, Yuji, Nanami
+    const CHARACTERS = [
+      {
+        codename: 'gojo',
+        name: 'Satoru Gojo',
+        color: 0x33c3fa,
+        maxhp: 120,
+        atk: 34,
+        def: 8,
+        skills: [{name: 'Infinity Kick', power: 32}, {name: 'Limitless Pulse', power: 45}],
+      },
+      {
+        codename: 'yuji',
+        name: 'Yuji Itadori',
+        color: 0xfa3333,
+        maxhp: 110,
+        atk: 29,
+        def: 11,
+        skills: [{name: 'Divergent Fist', power: 28}, {name: 'Black Flash', power: 42}],
+      },
+      {
+        codename: 'nanami',
+        name: 'Kento Nanami',
+        color: 0xfaca33,
+        maxhp: 105,
+        atk: 31,
+        def: 13,
+        skills: [{name: 'Ratio Strike', power: 30}, {name: 'Overtime', power: 38}],
+      }
+    ];
 
-let players = [];
-let playerIdx = 0;
-let aliveIdxs = [];
-let log = [];
+    // Escolha dos personagens (player x cpu)
+    let player = {...CHARACTERS[0], curhp: CHARACTERS[0].maxhp};
+    let cpu = {...CHARACTERS[1], curhp: CHARACTERS[1].maxhp};
 
-function startGame() {
-  const select = document.getElementById("playerChar");
-  const escolha = select.value;
-  // embaralhar personagens para cpu
-  let all = ["gojo", "yuji", "nanami"];
-  all = all.filter(c => c !== escolha);
-  shuffle(all);
-  players = [
-    { ...chars[escolha], id: 1, humano: true, vidaAtual: chars[escolha].vida },
-    { ...chars[all[0]], id: 2, humano: false, vidaAtual: chars[all[0]].vida },
-    { ...chars[all[1]], id: 3, humano: false, vidaAtual: chars[all[1]].vida },
-  ];
-  playerIdx = 0;
-  aliveIdxs = [0,1,2];
-  log = [];
-  document.getElementById("status").style.display = '';
-  updateUI();
-}
-
-function updateUI() {
-  for (let i=0;i<3;i++) {
-    let p = players[i];
-    let status = `<span>${p.nome}</span> — Vida: ${p.vidaAtual} / ${p.vida} | Ataque: ${p.ataque} | Defesa: ${p.defesa} | Especial: ${p.especial}`;
-    if (p.vidaAtual <= 0) status += " <b style='color:#e63946;'>(Derrotado)</b>";
-    document.getElementById('p'+(i+1)).innerHTML = status;
-  }
-  // mostrar botões de ataque se turno do jogador
-  let turno = aliveIdxs[playerIdx];
-  let p = players[turno];
-  let you = p.humano;
-  for (let i=1;i<=3;i++) {
-    let btn = document.getElementById('atk'+i);
-    if (you && players[i-1].vidaAtual>0 && i-1!==turno) {
-      btn.style.display = '';
-      btn.innerText = `Atacar ${players[i-1].nome}`;
-    } else {
-      btn.style.display = 'none';
+    // Seleção inicial
+    let gameStarted = false;
+    function showCharSelect() {
+      let html = `<b>Escolha seu personagem:</b><br>`;
+      CHARACTERS.forEach((ch, i) => {
+        html += `<button onclick="selectChar(${i})">${ch.name}</button>`;
+      });
+      document.getElementById('controls').innerHTML = html;
+      document.getElementById('status').innerHTML = '';
+      document.getElementById('log').innerHTML = '';
     }
-  }
-  // mostrar log
-  document.getElementById('log').innerHTML = log.slice(-8).join("<br>");
-  // se fim de jogo
-  if (aliveIdxs.length === 1) {
-    let vencedor = players[aliveIdxs[0]];
-    log.push(`<b style="color:#aaffaa">Vencedor: ${vencedor.nome}!</b>`);
-    document.getElementById('log').innerHTML = log.slice(-8).join("<br>");
-    for (let i=1;i<=3;i++) document.getElementById('atk'+i).style.display='none';
-  }
-}
-
-function attack(idx) {
-  let turno = aliveIdxs[playerIdx];
-  let alvo = idx-1;
-  if (players[alvo].vidaAtual <= 0 || alvo === turno) return;
-  let atq = players[turno].ataque + Math.floor(Math.random()*8);
-  let def = players[alvo].defesa + Math.floor(Math.random()*5);
-  let dano = Math.max(0, atq - def);
-  players[alvo].vidaAtual -= dano;
-  log.push(`<b>${players[turno].nome}</b> atacou <b>${players[alvo].nome}</b> causando <b>${dano}</b> de dano.`);
-  if (players[alvo].vidaAtual <= 0) {
-    players[alvo].vidaAtual = 0;
-    log.push(`<span style="color:#e63946"><b>${players[alvo].nome} foi derrotado!</b></span>`);
-    aliveIdxs = aliveIdxs.filter(i => i !== alvo);
-    // ajustar playerIdx se necessário
-    if (aliveIdxs.length > 0) {
-      let idxAtual = aliveIdxs.indexOf(turno);
-      playerIdx = (idxAtual+1)%aliveIdxs.length;
+    window.selectChar = function(i) {
+      player = {...CHARACTERS[i], curhp: CHARACTERS[i].maxhp};
+      const cpuIdx = (i+1)%3;
+      cpu = {...CHARACTERS[cpuIdx], curhp: CHARACTERS[cpuIdx].maxhp};
+      gameStarted = true;
+      document.getElementById('log').innerHTML = `<b>Você escolheu ${player.name}.</b><br>Oponente: ${cpu.name}.<br>Seu turno!`;
+      updateStatus();
+      showPlayerTurn();
     }
-    updateUI();
-    if (aliveIdxs.length === 1) return;
-    setTimeout(cpuTurn, 1200);
-    return;
-  }
-  // próximo turno
-  let idxAtual = aliveIdxs.indexOf(turno);
-  playerIdx = (idxAtual+1)%aliveIdxs.length;
-  updateUI();
-  if (!players[aliveIdxs[playerIdx]].humano) setTimeout(cpuTurn, 1200);
-}
 
-function cpuTurn() {
-  let turno = aliveIdxs[playerIdx];
-  let meu = players[turno];
-  // atacam um jogador random vivo diferente deles mesmos
-  let alvos = aliveIdxs.filter(i => i!==turno && players[i].vidaAtual>0);
-  if (alvos.length === 0) return;
-  let alvo = alvos[Math.floor(Math.random()*alvos.length)];
-  attack(alvo+1);
-}
+    // Batalha por turnos
+    let playerTurn = true;
+    function showPlayerTurn() {
+      if (player.curhp <= 0 || cpu.curhp <= 0) {endBattle(); return;}
+      let html = '';
+      player.skills.forEach((s, idx) => {
+        html += `<button onclick="playerAttack(${idx})">${s.name}</button>`;
+      });
+      document.getElementById('controls').innerHTML = html;
+    }
+    window.playerAttack = function(skillIdx) {
+      const skill = player.skills[skillIdx];
+      let dano = skill.power + Math.floor(Math.random()*6) - cpu.def;
+      if (dano < 0) dano = 0;
+      cpu.curhp -= dano;
+      if (cpu.curhp < 0) cpu.curhp = 0;
+      logMsg(`<span style="color:#6cfa6c;"><b>${player.name}</b> usou <b>${skill.name}</b>! Causou <b>${dano}</b> de dano.</span>`);
+      updateStatus();
+      setTimeout(cpuTurn, 1500);
+    }
+    function cpuTurn() {
+      if (player.curhp <= 0 || cpu.curhp <= 0) {endBattle(); return;}
+      // CPU escolhe skill aleatória
+      const skillIdx = Math.floor(Math.random() * cpu.skills.length);
+      const skill = cpu.skills[skillIdx];
+      let dano = skill.power + Math.floor(Math.random()*6) - player.def;
+      if (dano < 0) dano = 0;
+      player.curhp -= dano;
+      if (player.curhp < 0) player.curhp = 0;
+      logMsg(`<span style="color:#fa6c6c;"><b>${cpu.name}</b> usou <b>${skill.name}</b>! Causou <b>${dano}</b> de dano.</span>`);
+      updateStatus();
+      if (player.curhp > 0 && cpu.curhp > 0) {
+        setTimeout(showPlayerTurn, 1500);
+      } else {
+        setTimeout(endBattle, 800);
+      }
+    }
+    function endBattle() {
+      document.getElementById('controls').innerHTML = `<button onclick="showCharSelect()">Jogar Novamente</button>`;
+      if (player.curhp <= 0 && cpu.curhp <= 0)
+        logMsg(`<b>Empate!</b>`);
+      else if (player.curhp <= 0)
+        logMsg(`<b style="color:#fa6c6c;">Você perdeu!</b>`);
+      else
+        logMsg(`<b style="color:#6cfa6c;">Você venceu!</b>`);
+    }
+    function logMsg(msg) {
+      const log = document.getElementById('log');
+      log.innerHTML = msg + '<br>' + log.innerHTML;
+    }
+    function updateStatus() {
+      let bar = (hp, max) => `<div class="hpbar"><div class="hpval" style="width:${Math.max(0, hp/max*100)}%;"></div></div>`;
+      document.getElementById('status').innerHTML =
+        `<b>${player.name}</b> HP: ${player.curhp}/${player.maxhp}${bar(player.curhp, player.maxhp)}<br>
+         <b>${cpu.name}</b> HP: ${cpu.curhp}/${cpu.maxhp}${bar(cpu.curhp, cpu.maxhp)}`;
+    }
 
-function shuffle(a) {
-  for (let i=a.length-1; i>0; i--) {
-    let j = Math.floor(Math.random()*(i+1));
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-}
-</script>
+    // Three.js 3D Scene
+    let scene = new THREE.Scene();
+    let camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+    let renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Luz ambiente e direcional
+    let light = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(light);
+    let dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(3, 10, 10);
+    scene.add(dirLight);
+
+    // Solo
+    let plane = new THREE.Mesh(new THREE.PlaneGeometry(12, 8), new THREE.MeshStandardMaterial({color:0x232323}));
+    plane.rotation.x = -Math.PI/2;
+    scene.add(plane);
+
+    // Modelos 3D Simples (cubos coloridos representando cada personagem)
+    let models = {};
+    function makeCharModel(char, x) {
+      let geo = new THREE.BoxGeometry(1.2, 2.5, 1.2);
+      let mat = new THREE.MeshStandardMaterial({color:char.color});
+      let mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x, 1.3, 0);
+      scene.add(mesh);
+      return mesh;
+    }
+    function updateModels() {
+      // Remove modelos antigos
+      Object.values(models).forEach(m => scene.remove(m));
+      models.player = makeCharModel(player, -3);
+      models.cpu = makeCharModel(cpu, 3);
+    }
+
+    // Câmera
+    camera.position.set(0,4,10);
+    camera.lookAt(0,1,0);
+
+    // Render Loop
+    function animate() {
+      requestAnimationFrame(animate);
+      if (models.player) models.player.rotation.y += 0.01;
+      if (models.cpu) models.cpu.rotation.y -= 0.01;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Responsivo
+    window.addEventListener('resize',()=>{
+      camera.aspect = window.innerWidth/window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Início
+    showCharSelect();
+
+    // Atualiza modelos quando o combate começar/novo personagem
+    const origSelectChar = window.selectChar;
+    window.selectChar = function(idx) {
+      origSelectChar(idx);
+      updateModels();
+    };
+  </script>
 </body>
 </html>
