@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Gojo Platformer Skill Demo</title>
+  <title>Gojo Ultimate Platformer</title>
   <style>
     body { background: #222; margin: 0; overflow: hidden; }
     #gameCanvas {
@@ -17,7 +17,7 @@
       color: #fff; background: #191c; padding: 8px 22px; border-radius: 8px;
       font-size: 18px; font-family: sans-serif; letter-spacing: 1px;
       user-select: none; pointer-events: none; z-index:2;
-      min-width: 300px;
+      min-width: 320px;
     }
     #controls {
       position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
@@ -44,9 +44,9 @@
     #spawnBtn:hover {
       background: #ffd60a;
     }
-    #cooldownBarWrap {
+    #ultBarWrap {
       pointer-events: none;
-      width: 170px;
+      width: 200px;
       height: 20px;
       background: #333b;
       border-radius: 8px;
@@ -56,16 +56,27 @@
       align-items: center;
       position: relative;
     }
-    #cooldownBar {
+    #ultBar {
       height: 100%;
-      background: linear-gradient(90deg,#a7b0ff 0%,#e066ff 100%);
+      background: linear-gradient(90deg,#e3f2fd 0%,#9575cd 100%);
       border-radius: 8px 0 0 8px;
       transition: width .2s;
     }
-    #cooldownText {
+    #ultText {
       position: absolute; left:0; width: 100%; text-align: center; font-size: 13px;
       color: #fff; text-shadow: 0 0 4px #111c;
       pointer-events:none;
+    }
+    #ultReadyMsg {
+      position: absolute; top: 43px; left: 50%;
+      transform: translateX(-50%);
+      color: #ffe066;
+      font-weight: bold;
+      font-size: 20px;
+      text-shadow: 0 0 8px #000, 0 0 8px #ffe066;
+      z-index: 5;
+      display: none;
+      pointer-events: none;
     }
     @media (max-width: 700px){
       #gameCanvas { width: 98vw; height: 58vw; }
@@ -75,19 +86,19 @@
 </head>
 <body>
   <div id="hud">
-    ← → para andar, espaço para pular, <b>G</b> para "Hollow Purple"
+    ← → para andar, espaço para pular, <b>J/K/L</b> para ataques, <b>G</b> para Ultimate
   </div>
   <div id="controls">
     <button id="spawnBtn">Spawn Inimigo</button>
-    <div id="cooldownBarWrap">
-      <div id="cooldownBar" style="width:100%"></div>
-      <div id="cooldownText"></div>
+    <div id="ultBarWrap">
+      <div id="ultBar" style="width:0%"></div>
+      <div id="ultText"></div>
     </div>
   </div>
+  <div id="ultReadyMsg">Pressione <b>G</b> para acordar!</div>
   <canvas id="gameCanvas" width="600" height="320"></canvas>
   <script>
-    // Spritesheet do Gojo (direita, esquerda, idle, pulo) - pixel art simples
-    // Recomendo substituir pelos seus próprios sprites PNG!
+    // Sprites (sugestão: troque por PNGs reais)
     const gojoSprites = {
       idle: [
         "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_idle1.png",
@@ -105,8 +116,6 @@
         "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/gojo_jump.png"
       ],
     };
-
-    // Sprite do inimigo (pode substituir por PNG personalizado!)
     const enemySpriteUrl = "https://raw.githubusercontent.com/mkilll/Jogo-do-abate/main/sprites/enemy1.png";
 
     // Carregamento dos sprites
@@ -169,28 +178,53 @@
       x: 100, y: GROUND_Y, vx: 0, vy: 0,
       w: 32, h: 48,
       speed: 2.2, jumpPower: 11,
-      dir: 1, // 1 = direita, -1 = esquerda
+      dir: 1,
       grounded: true,
       animTimer: 0,
       animFrame: 0,
-      state: "idle" // idle, walkRight, walkLeft, jump
+      state: "idle",
+      baseMoveset: true,
+      ultActive: false,
+      ultTime: 0
     };
     let enemies = [];
+    let balloons = []; // fala
 
-    // Skill variables
-    let skillCooldown = 0; // 0 = pronto
-    const SKILL_COOLDOWN_MAX = 6.0; // segundos
-    let skillActive = false;
-    let skillAnimTimer = 0;
-    let skillStage = 0;
-    let skillBall = null; // objeto animacao das bolas
-    let purpleBall = null; // objeto da bola roxa lançada
+    // Barra de ultimate
+    let ultValue = 0, ULT_MAX = 100;
+    let ultReady = false, ultMode = false, ultTimer = 0;
+    let ultSkillState = null;
+    let ultSkillTimer = 0;
+    let ultSkillData = {};
+
+    // Ataques base
+    // J: Azul (dispara bola azul pequena que dá dano)
+    // K: Vermelho (dispara feixe vermelho curto que dá dano)
+    // L: Vazio (dispara bola roxa pequena, dano em área)
+    // (adicionando mais 3 ataques como pedido)
+    // U: "Arremesso" (Gojo arremessa um inimigo para cima se próximo)
+    // I: "Empurrão" (Gojo empurra inimigos próximos para longe)
+    // O: "Campo de energia" (Gojo cria uma barreira que bloqueia projéteis e empurra inimigos)
+
+    let projectiles = [];
+
+    // Ataques Ultimate
+    // G: ativa modo ultimate (moveset muda)
+    // 1: Azul Máximo (Q) -> bola azul gigante gira e vai ao céu, puxa inimigos
+    // 2: Vermelho Máximo (W) -> feixe vermelho; se Azul Máximo está no céu, vira esfera e se funde, criando Bola Roxa Gigante
+    // 3: Vazio Roxo (E) -> bola roxa gigante na direção do personagem
+    // 4: Expansão de Domínio (R) -> campo, paralisa inimigos por 5s
+
+    // Estado dos moves
+    let ultMoves = { azul: false, vermelho: false, vazio: false, dominio: false };
+    let azulNoCeu = false, azulObj = null, vermelhoObj = null, roxaoObj = null, dominioObj = null;
 
     // Input
     let keys = {};
     document.addEventListener('keydown', e => {
-      if (["ArrowLeft","ArrowRight"," ","g","G"].includes(e.key)) e.preventDefault();
-      keys[e.key.toLowerCase()] = true;
+      const k = e.key.toLowerCase();
+      if (["arrowleft","arrowright"," ","j","k","l","u","i","o","g","q","w","e","r"].includes(k)) e.preventDefault();
+      keys[k] = true;
     });
     document.addEventListener('keyup', e => {
       keys[e.key.toLowerCase()] = false;
@@ -202,13 +236,22 @@
     };
 
     function spawnEnemy() {
-      // Spawn na posição aleatória no chão
       let px = Math.random() > 0.5 ? canvas.width-60 : 60;
       let side = px > canvas.width/2 ? -1 : 1;
       enemies.push({
         x: px, y: GROUND_Y, vx: 1.1 * side, vy: 0,
-        w: 32, h: 48, alive:true, anim: 0
+        w: 32, h: 48, alive:true, anim: 0, paralisado: false, paralyzeTimer: 0
       });
+    }
+
+    // Fala
+    function balloon(text, px, py, color="#fff", time=70) {
+      balloons.push({text, x:px, y:py, color, t:time, max:time});
+    }
+
+    function updateBalloons() {
+      for (let b of balloons) b.t--;
+      balloons = balloons.filter(b=>b.t>0);
     }
 
     // Lógica principal
@@ -216,8 +259,17 @@
     function gameLoop(ts) {
       let dt = (ts - lastTime) / 1000; if (!dt||dt>0.2) dt=0.016; lastTime=ts;
 
-      // Input/Movimento Gojo
-      if (!skillActive) {
+      // Ultimate: G para ativar
+      if (!ultMode && ultReady && keys["g"]) {
+        ultMode = true;
+        ultTimer = 0;
+        PLAYER.ultActive = true;
+        balloon("Modo Ilimitado!", PLAYER.x+PLAYER.w/2, PLAYER.y-36,"#ffe066",120);
+        ultMoves = { azul: false, vermelho: false, vazio: false, dominio: false };
+      }
+
+      // Input/Movimento
+      if (!ultSkillState && !PLAYER.ultActive) {
         if (keys["arrowleft"]) {
           PLAYER.vx = -PLAYER.speed;
           PLAYER.dir = -1;
@@ -235,13 +287,27 @@
           PLAYER.grounded = false;
           PLAYER.state = "jump";
         }
+      } else if (!ultSkillState && PLAYER.ultActive) {
+        // Em ult mode, pode andar normalmente
+        if (keys["arrowleft"]) {
+          PLAYER.vx = -PLAYER.speed-0.4;
+          PLAYER.dir = -1;
+          if (PLAYER.grounded) PLAYER.state = "walkLeft";
+        } else if (keys["arrowright"]) {
+          PLAYER.vx = PLAYER.speed+0.4;
+          PLAYER.dir = 1;
+          if (PLAYER.grounded) PLAYER.state = "walkRight";
+        } else {
+          PLAYER.vx = 0;
+          if (PLAYER.grounded) PLAYER.state = "idle";
+        }
+        if ((keys[" "] || keys["arrowup"]) && PLAYER.grounded) {
+          PLAYER.vy = -PLAYER.jumpPower-2;
+          PLAYER.grounded = false;
+          PLAYER.state = "jump";
+        }
       } else {
-        PLAYER.vx = 0; // trava durante animação da skill
-      }
-
-      // Skill "Hollow Purple" (tecla G)
-      if ((keys["g"]) && !skillActive && skillCooldown===0) {
-        startSkill();
+        PLAYER.vx = 0;
       }
 
       // Física Gojo
@@ -269,98 +335,283 @@
         PLAYER.animFrame = 0;
       }
 
-      // Inimigos movimento
+      // Enemies
       enemies.forEach(enemy => {
         if (!enemy.alive) return;
+        // Paralisado?
+        if (enemy.paralisado) {
+          enemy.paralyzeTimer--;
+          if (enemy.paralyzeTimer<=0) enemy.paralisado=false;
+          return;
+        }
         // Anda em direção ao Gojo
         let dx = PLAYER.x - enemy.x;
         let dist = Math.abs(dx);
         if (dist > 12) enemy.vx = Math.sign(dx) * 1.1;
         else enemy.vx = 0;
         enemy.x += enemy.vx;
-        // pequenas animações
         enemy.anim += 0.1 + Math.random()*0.02;
       });
 
-      // Skill: animação e lógica
-      if (skillActive) skillAnim();
-
-      // Skill cooldown
-      if (skillCooldown>0 && !skillActive) {
-        skillCooldown -= dt;
-        if (skillCooldown<0) skillCooldown = 0;
-      }
-
-      // Bola roxa andando (destrói inimigos)
-      if (purpleBall) {
-        purpleBall.x += purpleBall.vx;
+      // Projéteis (base)
+      for (let p of projectiles) {
+        p.x += p.vx;
+        p.y += p.vy;
         // colisão com inimigos
-        enemies.forEach(enemy => {
-          if (!enemy.alive) return;
-          if (purpleBall.x + purpleBall.r > enemy.x && purpleBall.x - purpleBall.r < enemy.x + enemy.w
-              && purpleBall.y + purpleBall.r > enemy.y && purpleBall.y - purpleBall.r < enemy.y + enemy.h) {
+        for (let enemy of enemies) {
+          if (!enemy.alive || enemy.paralisado) continue;
+          if (p.x + p.r > enemy.x && p.x - p.r < enemy.x + enemy.w
+              && p.y + p.r > enemy.y && p.y - p.r < enemy.y + enemy.h) {
             enemy.alive = false;
+            if (p.type === "azul") balloon("Azul!", p.x, p.y-24,"#77ccff",54);
+            if (p.type === "vermelho") balloon("Vermelho!", p.x, p.y-24,"#ff6666",54);
+            if (p.type === "vazio") balloon("Vazio!", p.x, p.y-24,"#e0b6ff",54);
+            p.hit = true;
           }
-        });
-        // remove se sair da tela
-        if (purpleBall.x < -60 || purpleBall.x > canvas.width+60) purpleBall = null;
+        }
       }
+      projectiles = projectiles.filter(p => !p.hit && p.x>-48 && p.x<canvas.width+48 && p.y > -48 && p.y < canvas.height+48);
+
+      // Ataques BASE
+      if (!ultMode && !ultSkillState) {
+        if (keys["j"]) { // Azul
+          projectiles.push({x: PLAYER.x+PLAYER.w/2+PLAYER.dir*20, y: PLAYER.y+24, vx: 7*PLAYER.dir, vy:0, r:10, type:"azul"});
+          balloon("Azul!", PLAYER.x+PLAYER.w/2, PLAYER.y-30,"#77ccff",54); keys["j"]=false;
+          ultValue = Math.min(ultValue + 8, ULT_MAX);
+        }
+        if (keys["k"]) { // Vermelho
+          projectiles.push({x: PLAYER.x+PLAYER.w/2+PLAYER.dir*24, y: PLAYER.y+22, vx: 12*PLAYER.dir, vy:0, r:7, type:"vermelho"});
+          balloon("Vermelho!", PLAYER.x+PLAYER.w/2, PLAYER.y-30,"#ff6666",54); keys["k"]=false;
+          ultValue = Math.min(ultValue + 10, ULT_MAX);
+        }
+        if (keys["l"]) { // Vazio
+          projectiles.push({x: PLAYER.x+PLAYER.w/2+PLAYER.dir*17, y: PLAYER.y+26, vx: 9*PLAYER.dir, vy:0, r:14, type:"vazio"});
+          balloon("Vazio!", PLAYER.x+PLAYER.w/2, PLAYER.y-35,"#e0b6ff",54); keys["l"]=false;
+          ultValue = Math.min(ultValue + 12, ULT_MAX);
+        }
+        if (keys["u"]) { // Arremesso
+          for (let enemy of enemies) {
+            if (enemy.alive && Math.abs(enemy.x-PLAYER.x)<42 && Math.abs(enemy.y-PLAYER.y)<30) {
+              enemy.vy = -9-Math.random()*4;
+              enemy.vx = 2.3*PLAYER.dir;
+              balloon("Arremesso!", enemy.x+16, enemy.y-32,"#f5e642",54); keys["u"]=false;
+              ultValue = Math.min(ultValue + 6, ULT_MAX);
+              break;
+            }
+          }
+        }
+        if (keys["i"]) { // Empurrão
+          for (let enemy of enemies) {
+            if (enemy.alive && Math.abs(enemy.x-PLAYER.x)<54 && Math.abs(enemy.y-PLAYER.y)<36) {
+              enemy.vx = 7*PLAYER.dir;
+              balloon("Empurrão!", enemy.x+16, enemy.y-32,"#45e2f5",54); keys["i"]=false;
+              ultValue = Math.min(ultValue + 6, ULT_MAX);
+            }
+          }
+        }
+        if (keys["o"]) { // Campo de energia
+          for (let enemy of enemies) {
+            if (enemy.alive && Math.abs(enemy.x-PLAYER.x)<80 && Math.abs(enemy.y-PLAYER.y)<40) {
+              enemy.vx = 6.2*(enemy.x>PLAYER.x?1:-1);
+              balloon("Campo de Energia!", enemy.x+16, enemy.y-40,"#d4f542",54); keys["o"]=false;
+              ultValue = Math.min(ultValue + 8, ULT_MAX);
+            }
+          }
+        }
+      }
+
+      // Ultimate barra
+      if (!ultMode && ultValue === ULT_MAX) {
+        ultReady = true;
+        document.getElementById('ultReadyMsg').style.display = "";
+      } else {
+        ultReady = false;
+        document.getElementById('ultReadyMsg').style.display = "none";
+      }
+
+      // ULTIMATE MODE
+      if (ultMode) {
+        ultTimer += dt;
+        if (!ultSkillState) {
+          // Q: Azul Máximo
+          if (keys["q"]) {
+            ultSkillState = "azulmax";
+            ultSkillTimer = 0; keys["q"]=false;
+            azulNoCeu = false;
+            azulObj = {
+              x: PLAYER.x+PLAYER.w/2, y: PLAYER.y+24, r:18, state:0, t:0, pulling:[], goingUp:false
+            };
+            balloon("Azul Máximo!", azulObj.x, azulObj.y-60,"#42c9fa",94);
+          }
+          // W: Vermelho Máximo
+          if (keys["w"]) {
+            ultSkillState = "vermelhomax";
+            ultSkillTimer = 0; keys["w"]=false;
+            vermelhoObj = {
+              x: PLAYER.x+PLAYER.w/2+PLAYER.dir*20, y: PLAYER.y+24, r:13, dir:PLAYER.dir, state:0, t:0
+            };
+            balloon("Vermelho Máximo!", vermelhoObj.x, vermelhoObj.y-42,"#ff5555",80);
+          }
+          // E: Vazio Roxo
+          if (keys["e"]) {
+            ultSkillState = "vazioroxo";
+            ultSkillTimer = 0; keys["e"]=false;
+            roxaoObj = {
+              x: PLAYER.x+PLAYER.w/2+PLAYER.dir*26, y: PLAYER.y+28, r:21, dir:PLAYER.dir, t:0
+            };
+            balloon("Vazio Roxo!", roxaoObj.x, roxaoObj.y-42,"#a684e7",80);
+          }
+          // R: Expansão de Domínio
+          if (keys["r"]) {
+            ultSkillState = "dominio";
+            ultSkillTimer = 0; keys["r"]=false;
+            dominioObj = {
+              x: PLAYER.x, y:PLAYER.y, r:0, state:0, t:0
+            };
+            balloon("Expansão de Domínio: Vazio Ilimitado!", PLAYER.x+PLAYER.w/2, PLAYER.y-90,"#fff",120);
+          }
+        }
+      }
+
+      // Ultimate skills animação & efeitos
+      if (ultSkillState) {
+        ultSkillTimer++;
+        // Azul Máximo
+        if (ultSkillState==="azulmax" && azulObj) {
+          azulObj.t++;
+          if (azulObj.state===0) {
+            // Gira ao redor e puxa inimigos
+            azulObj.r = 34 + Math.sin(azulObj.t/10)*6;
+            azulObj.x = PLAYER.x+PLAYER.w/2 + Math.cos(azulObj.t/13)*32*PLAYER.dir;
+            azulObj.y = PLAYER.y+30 + Math.sin(azulObj.t/11)*14;
+            if (azulObj.t>36) azulObj.state=1, azulObj.t=0;
+            // Puxa inimigos próximos
+            for (let enemy of enemies) {
+              if (enemy.alive && !enemy.paralisado) {
+                let dx = azulObj.x-enemy.x, dy = azulObj.y-enemy.y;
+                let dist = Math.hypot(dx,dy);
+                if (dist < 120) {
+                  enemy.vx += dx/dist*0.59;
+                  enemy.vy += dy/dist*0.23;
+                  if (dist < azulObj.r+12) {
+                    enemy.alive=false;
+                    balloon("Sugado pelo Azul!", enemy.x+16, enemy.y-24,"#42c9fa",54);
+                  }
+                }
+              }
+            }
+          } else if (azulObj.state===1) {
+            // Vai ao céu
+            azulObj.goingUp = true;
+            azulObj.y -= 5.5;
+            if (azulObj.y < 40) azulObj.state=2, azulNoCeu=true, azulObj.t=0;
+          } else if (azulObj.state===2) {
+            // Fica no céu por ~5s
+            if (azulObj.t>300) { azulObj=null; azulNoCeu=false; ultSkillState=null;}
+          }
+        }
+        // Vermelho Máximo
+        else if (ultSkillState==="vermelhomax" && vermelhoObj) {
+          vermelhoObj.t++;
+          if (!azulNoCeu) {
+            // Feixe
+            let len = Math.min(230, vermelhoObj.t*5);
+            ctx.save();
+            ctx.globalAlpha = 0.16+0.24*Math.sin(vermelhoObj.t/3);
+            ctx.fillStyle = "#ff4c4c";
+            ctx.fillRect(vermelhoObj.x, vermelhoObj.y-7, len*vermelhoObj.dir,14);
+            ctx.restore();
+            // Dano: área em frente
+            for (let enemy of enemies) {
+              if (!enemy.alive||enemy.paralisado) continue;
+              let hit = false;
+              if (vermelhoObj.dir>0 && enemy.x>vermelhoObj.x && enemy.x<vermelhoObj.x+len && Math.abs(enemy.y-vermelhoObj.y)<25) hit = true;
+              if (vermelhoObj.dir<0 && enemy.x<vermelhoObj.x && enemy.x>vermelhoObj.x-len && Math.abs(enemy.y-vermelhoObj.y)<25) hit = true;
+              if (hit) {
+                enemy.alive = false;
+                balloon("Desintegrado pelo Vermelho!", enemy.x+16, enemy.y-24,"#ff5555",54);
+              }
+            }
+            if (vermelhoObj.t>22) {vermelhoObj=null; ultSkillState=null;}
+          } else {
+            // Interação: Azul no céu -> esfera se forma e sobe
+            vermelhoObj.y -= 2.5;
+            if (vermelhoObj.t>12) {
+              // Criar Bola Roxa Gigante
+              roxaoObj = {
+                x: azulObj.x, y: azulObj.y+10, r: 34, dir:PLAYER.dir, t:0, area:true
+              };
+              balloon("Combinação: Vazio Roxo Supremo!", roxaoObj.x, roxaoObj.y-42,"#ae7fff",110);
+              azulObj=null; azulNoCeu=false; vermelhoObj=null; ultSkillState="roxao";
+            }
+          }
+        }
+        // Vazio Roxo
+        else if (ultSkillState==="vazioroxo" && roxaoObj) {
+          roxaoObj.t++;
+          roxaoObj.x += 12*PLAYER.dir;
+          // Dano em tudo no caminho
+          for (let enemy of enemies) {
+            if (!enemy.alive||enemy.paralisado) continue;
+            if (roxaoObj.x + roxaoObj.r > enemy.x && roxaoObj.x - roxaoObj.r < enemy.x + enemy.w
+              && roxaoObj.y + roxaoObj.r > enemy.y && roxaoObj.y - roxaoObj.r < enemy.y + enemy.h) {
+                enemy.alive = false;
+                balloon("Eliminado pelo Vazio Roxo!", enemy.x+16, enemy.y-24,"#a684e7",54);
+            }
+          }
+          if (roxaoObj.x < -80 || roxaoObj.x > canvas.width+80) { roxaoObj=null; ultSkillState=null; }
+        }
+        // Roxao (combinação Azul+Vermelho)
+        else if (ultSkillState==="roxao" && roxaoObj) {
+          roxaoObj.t++;
+          roxaoObj.y += 4.5;
+          if (roxaoObj.t>16) {
+            // Explosão em área
+            for (let enemy of enemies) {
+              if (!enemy.alive||enemy.paralisado) continue;
+              let dx = roxaoObj.x - (enemy.x+enemy.w/2), dy = roxaoObj.y - (enemy.y+enemy.h/2);
+              if (Math.hypot(dx,dy)<roxaoObj.r+60) {
+                enemy.alive = false;
+                balloon("Aniquilado pela Bola Roxa Suprema!", enemy.x+16, enemy.y-24,"#ae7fff",86);
+              }
+            }
+            roxaoObj=null; ultSkillState=null;
+          }
+        }
+        // Expansão de Domínio: Vazio Ilimitado
+        else if (ultSkillState==="dominio" && dominioObj) {
+          dominioObj.t++;
+          if (dominioObj.state===0) {
+            dominioObj.r += 15;
+            if (dominioObj.r > 270) dominioObj.state=1;
+            for (let enemy of enemies) {
+              if (!enemy.alive) continue;
+              let dx = (PLAYER.x+PLAYER.w/2) - (enemy.x+enemy.w/2);
+              let dy = (PLAYER.y+PLAYER.h/2) - (enemy.y+enemy.h/2);
+              if (Math.hypot(dx,dy)<dominioObj.r) {
+                enemy.paralisado = true;
+                enemy.paralyzeTimer = 300; // 5s
+              }
+            }
+          }
+          if (dominioObj.t>320) { dominioObj=null; ultSkillState=null;}
+        }
+      }
+
+      // ULTIMATE: Duração ~15s
+      if (ultMode) {
+        if (!ultSkillState) ultTimer += dt;
+        if (ultTimer > 15.5) {
+          ultMode = false; ultValue = 0; PLAYER.ultActive=false;
+        }
+      }
+
+      // Balões de fala
+      updateBalloons();
 
       // Render
       draw();
       requestAnimationFrame(gameLoop);
-    }
-
-    // Skill Animation
-    function startSkill() {
-      skillActive = true;
-      skillAnimTimer = 0;
-      skillStage = 0;
-      // cria bolas azul e vermelha atrás do Gojo
-      skillBall = {
-        blue: { x: PLAYER.x + PLAYER.w/2 -32*PLAYER.dir, y: PLAYER.y+18, r:12 },
-        red: { x: PLAYER.x + PLAYER.w/2 -24*PLAYER.dir, y: PLAYER.y+30, r:10 }
-      };
-      purpleBall = null;
-    }
-    function skillAnim() {
-      skillAnimTimer++;
-
-      // Stage 0: bolas aparecem atrás
-      if (skillStage===0) {
-        // move as bolas lentamente para trás
-        skillBall.blue.x += 0.8 * -PLAYER.dir;
-        skillBall.red.x += 0.8 * -PLAYER.dir;
-        if (skillAnimTimer>24) skillStage=1, skillAnimTimer=0;
-      }
-      // Stage 1: bolas se aproximam
-      else if (skillStage===1) {
-        skillBall.blue.x += 0.87 * PLAYER.dir;
-        skillBall.red.x += 0.6 * PLAYER.dir;
-        // encontro no centro
-        if ((PLAYER.dir===1 && skillBall.blue.x >= PLAYER.x+PLAYER.w+6) ||
-            (PLAYER.dir===-1 && skillBall.blue.x <= PLAYER.x-12)) {
-          skillStage=2; skillAnimTimer=0;
-        }
-      }
-      // Stage 2: bola roxa aparece na frente + some bolas coloridas
-      else if (skillStage===2) {
-        let px = PLAYER.x + PLAYER.w/2 + PLAYER.dir*38;
-        purpleBall = {
-          x: px, y: PLAYER.y+26, r: 18, vx: 12*PLAYER.dir
-        };
-        skillBall = null;
-        skillStage=3; skillAnimTimer=0;
-        // sons ou tela tremendo poderia ser adicionado aqui
-      }
-      // Stage 3: bola roxa indo pra frente
-      else if (skillStage===3) {
-        // espera 12 frames para liberar movimento de novo
-        if (skillAnimTimer>12) {
-          skillActive = false;
-          skillCooldown = SKILL_COOLDOWN_MAX;
-        }
-      }
     }
 
     // Draw
@@ -390,51 +641,108 @@
         ctx.fill();
         ctx.restore();
 
-        // Sprite inimigo
         ctx.save();
         ctx.translate(enemy.x+enemy.w/2, enemy.y+enemy.h/2);
         ctx.scale(Math.sign(enemy.vx)||1,1);
+        ctx.globalAlpha = enemy.paralisado ? 0.5 : 1;
         ctx.drawImage(loadedEnemySprite, -enemy.w/2, -enemy.h/2, enemy.w, enemy.h);
         ctx.restore();
       });
 
-      // Skill: bolas azul/vermelha atrás do Gojo
-      if (skillBall) {
-        // blue
-        ctx.beginPath();
-        ctx.arc(skillBall.blue.x, skillBall.blue.y, skillBall.blue.r, 0, Math.PI*2);
-        ctx.fillStyle = "#38f";
-        ctx.shadowColor = "#66cfff";
-        ctx.shadowBlur = 20;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        // red
-        ctx.beginPath();
-        ctx.arc(skillBall.red.x, skillBall.red.y, skillBall.red.r, 0, Math.PI*2);
-        ctx.fillStyle = "#f44";
-        ctx.shadowColor = "#ff9b9b";
-        ctx.shadowBlur = 18;
-        ctx.fill();
-        ctx.shadowBlur = 0;
+      // Projéteis base
+      for (let p of projectiles) {
+        if (p.type==="azul") {
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          ctx.fillStyle = "#42c9fa";
+          ctx.shadowColor = "#6cf";
+          ctx.shadowBlur = 14;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        if (p.type==="vermelho") {
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          ctx.fillStyle = "#f55";
+          ctx.shadowColor = "#faa";
+          ctx.shadowBlur = 14;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+        if (p.type==="vazio") {
+          ctx.beginPath();
+          ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          ctx.fillStyle = "#a684e7";
+          ctx.shadowColor = "#e0b6ff";
+          ctx.shadowBlur = 18;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
       }
 
-      // Skill: bola roxa
-      if (purpleBall) {
+      // ULTIMATE SKILLS (animações)
+      // Azul Máximo
+      if (azulObj) {
         ctx.save();
+        let grad = ctx.createRadialGradient(azulObj.x, azulObj.y, 10, azulObj.x, azulObj.y, azulObj.r);
+        grad.addColorStop(0,"#c5f6ff");
+        grad.addColorStop(0.23,"#42c9fa");
+        grad.addColorStop(1,"#1a3e7a");
         ctx.beginPath();
-        let grad = ctx.createRadialGradient(purpleBall.x, purpleBall.y, 4, purpleBall.x, purpleBall.y, purpleBall.r);
-        grad.addColorStop(0, "#fff");
-        grad.addColorStop(0.15, "#d6aaff");
-        grad.addColorStop(0.55, "#9d51c2");
-        grad.addColorStop(1, "#3d006b");
+        ctx.arc(azulObj.x,azulObj.y,azulObj.r,0,Math.PI*2);
         ctx.fillStyle = grad;
-        ctx.globalAlpha = 0.96;
-        ctx.arc(purpleBall.x, purpleBall.y, purpleBall.r, 0, Math.PI*2);
-        ctx.shadowColor = "#fff";
-        ctx.shadowBlur = 32;
+        ctx.shadowColor = "#88e0ff";
+        ctx.shadowBlur = 40;
+        ctx.globalAlpha = 0.95;
         ctx.fill();
-        ctx.globalAlpha = 1.0;
         ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+      // Vermelho Máximo
+      if (vermelhoObj && !azulNoCeu) {
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = "#ff4c4c";
+        ctx.fillRect(vermelhoObj.x, vermelhoObj.y-7, 170*vermelhoObj.dir,14);
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.arc(vermelhoObj.x,vermelhoObj.y,vermelhoObj.r,0,Math.PI*2);
+        ctx.fillStyle = "#f55";
+        ctx.shadowColor = "#faa";
+        ctx.shadowBlur = 14;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+      // Bola Roxa (combinação)
+      if (roxaoObj) {
+        ctx.save();
+        let grad = ctx.createRadialGradient(roxaoObj.x, roxaoObj.y, 9, roxaoObj.x, roxaoObj.y, roxaoObj.r);
+        grad.addColorStop(0, "#fff");
+        grad.addColorStop(0.14, "#e0b6ff");
+        grad.addColorStop(0.44, "#a684e7");
+        grad.addColorStop(1, "#3d006b");
+        ctx.beginPath();
+        ctx.arc(roxaoObj.x,roxaoObj.y,roxaoObj.r,0,Math.PI*2);
+        ctx.fillStyle = grad;
+        ctx.shadowColor = "#fff";
+        ctx.shadowBlur = 42;
+        ctx.globalAlpha = 0.98;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+      // Expansão de Domínio
+      if (dominioObj) {
+        ctx.save();
+        ctx.globalAlpha = 0.18 + Math.sin(dominioObj.r/40)*0.08;
+        ctx.beginPath();
+        ctx.arc(PLAYER.x+PLAYER.w/2,PLAYER.y+PLAYER.h/2,dominioObj.r,0,Math.PI*2);
+        ctx.fillStyle = "#b8a8ff";
+        ctx.fill();
+        ctx.globalAlpha = 1;
         ctx.restore();
       }
 
@@ -448,22 +756,40 @@
       ctx.drawImage(sprite, PLAYER.x, PLAYER.y, PLAYER.w, PLAYER.h);
 
       // Nome
-      ctx.font = "bold 18px Arial";
+      ctx.font = "bold 19px Arial";
       ctx.fillStyle = "#fff";
       ctx.strokeStyle = "#222";
       ctx.lineWidth = 3;
       ctx.strokeText("Gojo", PLAYER.x+2, PLAYER.y-6);
       ctx.fillText("Gojo", PLAYER.x+2, PLAYER.y-6);
 
-      // HUD: Cooldown da skill
-      const bar = document.getElementById('cooldownBar');
-      const txt = document.getElementById('cooldownText');
-      let ratio = (SKILL_COOLDOWN_MAX-skillCooldown)/SKILL_COOLDOWN_MAX;
+      // Balões de fala
+      for (let b of balloons) {
+        let alpha = b.t/b.max;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1,alpha+0.17);
+        ctx.font = "bold 16px Arial";
+        ctx.fillStyle = b.color;
+        ctx.strokeStyle = "#222";
+        ctx.lineWidth = 3;
+        ctx.textAlign = "center";
+        ctx.strokeText(b.text, b.x, b.y);
+        ctx.fillText(b.text, b.x, b.y);
+        ctx.restore();
+      }
+
+      // HUD: Ultimate barra
+      const bar = document.getElementById('ultBar');
+      const txt = document.getElementById('ultText');
+      let ratio = ultValue/ULT_MAX;
+      if (ultMode) ratio = 1;
       bar.style.width = (ratio*100).toFixed(1) + "%";
-      txt.textContent = skillCooldown === 0 ? "Hollow Purple PRONTO!" : "Cooldown: " + skillCooldown.toFixed(1) + "s";
-      bar.style.background = skillCooldown === 0
-        ? "linear-gradient(90deg,#a7b0ff 30%,#e066ff 100%)"
-        : "linear-gradient(90deg,#666 30%,#9933cc 100%)";
+      txt.textContent = ultMode
+        ? "Modo Ilimitado Ativo!"
+        : (ultValue===ULT_MAX ? "ULT pronta!" : "Ultimate: "+ultValue.toFixed(0)+"%");
+      bar.style.background = ultMode
+        ? "linear-gradient(90deg,#e3f2fd 30%,#ce93d8 100%)"
+        : "linear-gradient(90deg,#b0bec5 0%,#9575cd 100%)";
     }
 
     // Iniciar depois de sprites carregados
@@ -471,8 +797,9 @@
       requestAnimationFrame(gameLoop);
     });
 
-    // Spawna um inimigo automaticamente no início para testes
+    // Spawna um inimigo automaticamente no início
     setTimeout(spawnEnemy, 850);
+
   </script>
 </body>
 </html>
