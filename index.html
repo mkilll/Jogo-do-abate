@@ -2,246 +2,228 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Gojo Base Skills (Minimal)</title>
+  <title>Gojo Awakening System Demo</title>
   <style>
-    body { background: #1c232e; margin: 0; overflow: hidden; }
+    body { background: #141b26; margin: 0; overflow: hidden; }
     #gameCanvas {
-      background: linear-gradient(to top, #0a1833 70%, #b1eaff 100%);
+      background: linear-gradient(to top, #111a 84%, #b1eaff 100%);
       display: block;
       margin: 0 auto;
       border: 2px solid #121a2a;
       box-shadow: 0 0 18px #000a;
+      touch-action: none;
     }
     #hud {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      color: #fff; background: #181c  ; padding: 5px 16px; border-radius: 8px;
-      font-size: 14px; font-family: 'Segoe UI', Arial, sans-serif;
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      color: #fff; background: #181c  ; padding: 6px 16px; border-radius: 10px;
+      font-size: 14px; font-family: Arial, sans-serif;
       user-select: none; pointer-events: none; z-index:2;
-      min-width: 260px; text-align: center;
+      min-width: 240px; text-align: center;
       letter-spacing: 1px;
     }
-    #controls {
-      position: absolute; top: 39px; left: 50%; transform: translateX(-50%);
-      z-index:3;
-      display: flex;
-      justify-content: center;
-      gap: 14px;
-      width: 100vw;
-      pointer-events: none;
-    }
     #spawnBtn {
-      pointer-events: auto;
+      position: absolute; top: 16px; left: 25px;
       background: #ffe066;
       color: #222;
       border: none;
-      border-radius: 5px;
-      font-size: 13px;
-      padding: 5px 15px;
+      border-radius: 6px;
+      font-size: 14px;
+      padding: 6px 16px;
       cursor: pointer;
-      margin-right: 10px;
-      box-shadow: 0 0 5px #0005;
+      box-shadow: 0 0 8px #0002;
+      z-index: 3;
       transition: background .18s;
     }
     #spawnBtn:hover { background: #ffd60a; }
     #skillsHUD {
-      position: absolute; top: 74px; left: 50%; transform: translateX(-50%);
-      background: #181e  ; color: #fff; border-radius: 6px; padding: 4px 7px;
-      font-size: 11px; z-index:10; min-width: 180px; pointer-events: none;
+      position: absolute; bottom: 58px; right: 30px;
+      background: #181e; color: #fff; border-radius: 8px; padding: 9px 16px 5px 16px;
+      font-size: 13px; z-index:10; min-width: 185px;
       font-family: monospace;
-      display: flex; gap: 4px; justify-content: center; align-items: flex-end;
+      pointer-events: none;
+      box-shadow: 0 1px 8px #0006;
+      opacity: .96;
     }
-    .skillBox {
-      background: #111d;
-      border: 1px solid #ffe066;
-      border-radius: 5px;
-      padding: 4px 4px 4px 4px;
-      min-width: 44px;
+    .skillLine {
+      margin: 0px 0 2px 0;
+      font-size: 12px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      position: relative;
-      box-shadow: 0 1px 4px #0003;
-      margin-bottom: 2px;
-      margin-left: 2px;
-      margin-right: 2px;
-      transition: border-color .2s, opacity .2s;
-    }
-    .skillBox.cooldown {
-      border-color: #737373;
-      opacity: .45;
-    }
-    .skillName {
-      font-weight: 500;
-      font-size: 11px;
-      margin-bottom: 1px;
-      letter-spacing: 0.5px;
-    }
-    .skillKey {
-      font-size: 10px;
-      background: #ffe066;
-      color: #201;
-      padding: 0px 5px 0px 5px;
-      border-radius: 9px;
-      font-weight: bold;
-      margin-bottom: 1px;
-      letter-spacing: 1px;
-      margin-top: 1px;
-    }
-    .skillR {
-      position: absolute; right: 4px; top: 2px; font-size: 9px; color: #ffe066;
-      background: #232; border-radius: 5px; padding: 0px 4px;
-      font-weight: 500; border: 1px solid #ffe06670;
-    }
-    .skillCD {
-      font-size: 10px;
-      margin-top: 1px;
+      gap: 6px;
       color: #ffe066;
-      background: #232c;
-      padding: 0px 4px;
-      border-radius: 7px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
     }
-    #hint {
-      position: absolute; top: 5px; right: 18px; color: #fff; font-size: 10px;
-      font-family: monospace; opacity: .40; pointer-events: none;
+    .skKey { background: #ffe066; color: #222; font-weight: bold; border-radius: 6px;
+      padding: 0 5px 0 5px; font-size: 12px; margin-right: 2px;}
+    .skCD { color: #69e1ff; font-size: 11px; padding: 0 3px; }
+    .skLock { color: #888;}
+    #awkBarWrap {
+      position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+      width: 50vw; max-width: 520px; height: 20px; background: #232b;
+      border-radius: 12px; border: 2px solid #1f2a3a;
+      display: flex; align-items: center;
+      box-shadow: 0 0 12px #0006;
+      z-index: 5;
     }
-    @media (max-width: 800px){
-      #gameCanvas { width: 99vw; height: 44vw; }
-      #hud, #controls, #skillsHUD { min-width: 0; }
-      .skillBox { min-width: 24px; font-size: 8px; }
-      .skillName { font-size: 9px;}
-      .skillCD, .skillKey, .skillR { font-size: 8px;}
+    #awkBar {
+      height: 100%; border-radius: 12px 0 0 12px;
+      background: linear-gradient(90deg,#84e2ff 0%,#8f6fff 100%);
+      transition: width .19s;
+    }
+    #awkText {
+      position: absolute; width: 100%; text-align: center;
+      color: #ffe066; font-weight: bold; font-size: 16px;
+      letter-spacing: 1px;
+      text-shadow: 0 0 8px #101c;
+      left: 0; top: 0; pointer-events: none;
+    }
+    #awkReady {
+      position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%);
+      color: #ffe066; font-size: 23px; font-weight: bold; text-shadow: 0 0 12px #fff7, 0 0 8px #ffe066;
+      z-index: 7;
+      letter-spacing: 1px;
+      display: none;
+      pointer-events: none;
+    }
+    @media (max-width: 900px){
+      #gameCanvas { width: 98vw; height: 43vw; }
+      #hud, #skillsHUD, #awkBarWrap { min-width: 0; }
+      #skillsHUD { right: 7vw; }
     }
   </style>
 </head>
 <body>
   <div id="hud">
-    ← → para andar, espaço para pular, <b>1-5</b> para skills, <b>R</b> para interações
+    ← → para andar, espaço para pular, <b>1-4</b> para skills (na forma Awk), <b>R</b> interage, <b>G</b> desperta
   </div>
-  <div id="hint">Use "Spawn Inimigo" para adicionar inimigos.</div>
-  <div id="controls">
-    <button id="spawnBtn">Spawn Inimigo</button>
-  </div>
+  <button id="spawnBtn">Spawn Inimigo</button>
   <div id="skillsHUD"></div>
-  <canvas id="gameCanvas" width="2000" height="700"></canvas>
+  <div id="awkBarWrap">
+    <div id="awkBar" style="width:0%"></div>
+    <div id="awkText"></div>
+  </div>
+  <div id="awkReady">Aperte <b>G</b> para acordar!</div>
+  <canvas id="gameCanvas" width="1700" height="600"></canvas>
   <script>
-    // Sprites simples (troque se quiser)
-    const gojoColor = "#aaf";
-    const enemyColor = "#f55";
-
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const GRAVITY = 0.7, GROUND_Y = 470;
-
-    // Player
+    // --- CONFIG ---
+    const BASE_COLOR = "#aaf";
+    const ENEMY_COLOR = "#f55";
+    const mapWidth = 1700, mapHeight = 600, groundY = 430;
+    // Gojo "minimal detalhado"
+    function drawGojo(x, y, w, h, dir, awakened) {
+      ctx.save();
+      ctx.translate(x+w/2, y+h/2);
+      ctx.scale(dir,1);
+      // sombra
+      ctx.save();
+      ctx.globalAlpha = 0.14;
+      ctx.beginPath();
+      ctx.ellipse(0, h/2-4, w*0.54, h*0.16, 0,0,Math.PI*2);
+      ctx.fillStyle = "#000";
+      ctx.fill();
+      ctx.restore();
+      // Corpo
+      ctx.fillStyle = awakened ? "#ccd7ff" : BASE_COLOR;
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-w/2+4, h/2-7); ctx.lineTo(-w/2+4, -h/2+14); ctx.lineTo(-w/6, -h/2+1);
+      ctx.lineTo(w/6, -h/2+1); ctx.lineTo(w/2-4, -h/2+14); ctx.lineTo(w/2-4, h/2-7);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Cabeça
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(0, -h/2+12, w/3.1, h/3.5, 0, 0, Math.PI*2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      // Máscara
+      ctx.fillStyle = "#111";
+      ctx.fillRect(-w/3.1, -h/2+8, w/1.55, h/8.5);
+      // Olhos
+      ctx.beginPath();
+      ctx.arc(-w/9, -h/2+13, 2, 0, Math.PI*2);
+      ctx.arc(w/9, -h/2+13, 2, 0, Math.PI*2);
+      ctx.fillStyle = awakened ? "#95e7ff" : "#aaf";
+      ctx.fill();
+      // Cabelo
+      ctx.beginPath();
+      ctx.moveTo(-w/4, -h/2+9); ctx.lineTo(0, -h/2-7);
+      ctx.lineTo(w/4, -h/2+9); ctx.lineTo(0, -h/2+6); ctx.closePath();
+      ctx.fillStyle = "#e8f3ff";
+      ctx.fill();
+      ctx.restore();
+      ctx.restore();
+    }
+    // Enemy model: mais detalhado
+    function drawEnemy(e) {
+      ctx.save();
+      ctx.translate(e.x+e.w/2, e.y+e.h/2);
+      // sombra
+      ctx.globalAlpha = 0.13;
+      ctx.beginPath();
+      ctx.ellipse(0, e.h/2-3, e.w*0.54, e.h*0.15, 0,0,Math.PI*2);
+      ctx.fillStyle = "#000";
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      // corpo
+      ctx.fillStyle = e.color;
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, e.w/2-1, e.h/2-2.5, 0, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+      // Cabeça
+      ctx.beginPath();
+      ctx.arc(0, -e.h/2+9, e.w/3.1, 0, Math.PI*2);
+      ctx.fillStyle = "#f7e2d6";
+      ctx.fill();
+      // Olhos
+      ctx.beginPath();
+      ctx.arc(-e.w/11, -e.h/2+11, 1.2, 0, Math.PI*2);
+      ctx.arc(e.w/11, -e.h/2+11, 1.2, 0, Math.PI*2);
+      ctx.fillStyle = "#000";
+      ctx.fill();
+      ctx.restore();
+    }
+    // --- PLAYER ---
     const PLAYER = {
-      x: 200, y: GROUND_Y, vx: 0, vy: 0,
-      w: 24, h: 35,
+      x: 200, y: groundY, vx: 0, vy: 0,
+      w: 38, h: 62,
       dir: 1,
-      speed: 2.2, jumpPower: 10,
+      speed: 2.2, jumpPower: 11,
       grounded: true,
       state: "idle",
-      aura: null,
-      stunEnemy: null,
-      rInteract: null,
-      infBarrier: false,
-      infTimer: 0,
-      teleportActive: false,
-      skillTarget: null,
-      punchAnim: 0,
-      punchTarget: null,
-      punchStep: 0,
-      punchTimer: 0,
-      canAct: true
+      canAct: true,
+      awk: 0, awkMax: 100,
+      awakened: false,
+      awkTimer: 0,
+      awkCD: [0,0,0,0], // cooldowns 1-4
+      awkLock: [false, false, false, false],
+      blueSky: false,
+      blueSkyObj: null,
+      blueComboReady: false,
+      redHold: false,
+      redObj: null,
+      redCombo: false,
+      purpleObj: null,
+      purpleHold: false,
+      purpleSize: 18,
+      infField: null
     };
 
-    // Enemy
+    // --- ENEMIES ---
     let enemies = [];
 
-    // Skills config
-    const skillData = [
-      { // Azul
-        name: "Azul",
-        key: "1",
-        cooldown: 8,
-        last: -99,
-        r: true,
-        desc: "Puxar+Stun<br>R:Chute"
-      },
-      { // Vermelho
-        name: "Verm.",
-        key: "2",
-        cooldown: 7,
-        last: -99,
-        r: true,
-        desc: "Explode<br>R:TP/bola"
-      },
-      { // Infinito
-        name: "Inf.",
-        key: "3",
-        cooldown: 12,
-        last: -99,
-        r: false,
-        desc: "Barreira: lento"
-      },
-      { // Socos
-        name: "Socos",
-        key: "4",
-        cooldown: 10,
-        last: -99,
-        r: false,
-        desc: "5x + socão"
-      },
-      { // Teleporte
-        name: "TP",
-        key: "5",
-        cooldown: 6,
-        last: -99,
-        r: true,
-        desc: "TP<br>R:frente"
-      }
-    ];
-    // Skill state
-    let now = 0;
-    let proj = null, vermProj = null, punchFX = null;
-
-    // Input
-    let keys = {};
-    document.addEventListener('keydown', e => {
-      const k = e.key.toLowerCase();
-      keys[k] = true;
-      if (["arrowleft","arrowright"," ","1","2","3","4","5","r"].includes(k)) e.preventDefault();
-    });
-    document.addEventListener('keyup', e => {
-      keys[e.key.toLowerCase()] = false;
-    });
-
-    // Spawn inimigo botão
-    document.getElementById('spawnBtn').onclick = function() {
-      spawnEnemy();
-    };
-
-    // Skills logic
-    function nearestEnemy() {
-      let min = 9999, target = null;
-      for (let e of enemies) if(e.alive) {
-        let d = Math.abs(e.x - PLAYER.x);
-        if (d < min) {min = d; target = e;}
-      }
-      return target;
-    }
     function spawnEnemy() {
-      let hp = 60+Math.random()*35;
-      let px = Math.random() > 0.5 ? canvas.width-80 : 80;
-      let side = px > canvas.width/2 ? -1 : 1;
+      let hp = 65+Math.random()*45;
+      let px = Math.random() > 0.5 ? mapWidth-130 : 130;
+      let side = px > mapWidth/2 ? -1 : 1;
       enemies.push({
         x: px,
-        y: GROUND_Y,
-        vx: 1.1 * side,
+        y: groundY,
+        vx: 1.09 * side,
         vy: 0,
-        w: 24,
-        h: 35,
+        w: 35,
+        h: 49,
         alive: true,
         hp: hp,
         mhp: hp,
@@ -249,375 +231,409 @@
         stunT: 0,
         slow: false,
         slowT: 0,
-        col: enemyColor,
-        floating: false
+        color: "#f55",
+        frozen: false
       });
     }
-    function useSkill(idx) {
-      let t = now;
-      let data = skillData[idx];
-      if (t-data.last < data.cooldown) return;
-      // Azul
-      if (idx===0) {
-        let e = nearestEnemy();
-        if (!e) return;
-        data.last = t;
-        PLAYER.aura = {x:e.x+e.w/2, y:e.y+e.h/2, r:0, max:38, target:e, growing:true};
-        PLAYER.stunEnemy = e;
-        e.stunned = true; e.stunT = 100;
-        e.slow = false;
-      }
-      // Vermelho
-      if (idx===1) {
-        let e = nearestEnemy();
-        if (!e) return;
-        data.last = t;
-        vermProj = {
-          x: PLAYER.x+PLAYER.w/2+PLAYER.dir*13,
-          y: PLAYER.y+19,
-          vx: PLAYER.dir*6,
-          vy: 0,
-          r: 7,
-          timer: 0,
-          target: e,
-          exploded: false
-        };
-      }
-      // Infinito
-      if (idx===2) {
-        data.last = t;
-        PLAYER.infBarrier = true;
-        PLAYER.infTimer = 110; // 2s
-        for(let e of enemies) {
-          if(e.alive && Math.abs(e.x-PLAYER.x)<70) {
-            e.slow = true; e.slowT = 110;
-          }
-        }
-      }
-      // Socos rápidos
-      if (idx===3) {
-        let e = nearestEnemy();
-        if (!e || Math.abs(e.x-PLAYER.x)>38) return;
-        data.last = t;
-        PLAYER.punchAnim = 1;
-        PLAYER.punchTarget = e;
-        PLAYER.punchStep = 0;
-        PLAYER.punchTimer = 0;
-        PLAYER.canAct = false;
-      }
-      // Teletransporte
-      if (idx===4) {
-        let e = nearestEnemy();
-        if (!e) return;
-        data.last = t;
-        PLAYER.teleportActive = true;
-        PLAYER.skillTarget = e;
-        setTimeout(()=>{
-          PLAYER.x = e.x-PLAYER.dir*30;
-          PLAYER.y = e.y;
-          PLAYER.teleportActive = false;
-        },120);
-      }
-    }
-    // Interações R
-    function skillR() {
-      // Azul: chutar inimigo
-      if (PLAYER.stunEnemy && PLAYER.stunEnemy.stunned) {
-        PLAYER.stunEnemy.stunned = false;
-        PLAYER.stunEnemy.vx = PLAYER.dir*7;
-        PLAYER.stunEnemy.vy = -6;
-        PLAYER.stunEnemy.slow = false;
-        PLAYER.stunEnemy.stunT = 0;
-        PLAYER.stunEnemy = null;
-      }
-      // Vermelho: teleportar atrás e lançar invertido
-      else if (vermProj && !vermProj.exploded && vermProj.target && vermProj.target.alive) {
-        PLAYER.x = vermProj.target.x + (PLAYER.dir===1?-28:28);
-        PLAYER.y = vermProj.target.y-6;
-        setTimeout(()=>{
-          vermProj.vx = -PLAYER.dir*9;
-        }, 130);
-      }
-      // Teletransporte: Aparecer na frente do inimigo
-      else if (PLAYER.skillTarget && PLAYER.skillTarget.alive && PLAYER.teleportActive) {
-        PLAYER.x = PLAYER.skillTarget.x + (PLAYER.dir===1?28:-28);
-        PLAYER.teleportActive = false;
-      }
-    }
+    document.getElementById('spawnBtn').onclick = spawnEnemy;
 
-    // Main loop
-    let lastTime = 0;
+    // --- INPUT ---
+    let keys = {};
+    document.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      keys[k] = true;
+      if (["arrowleft","arrowright"," ","1","2","3","4","r","g"].includes(k)) e.preventDefault();
+    });
+    document.addEventListener('keyup', e => {
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    // --- GAME LOOP ---
+    let now = 0;
     function gameLoop(ts) {
       now = ts/1000;
 
-      // Movimento
-      if (PLAYER.canAct) {
-        if (keys["arrowleft"]) {
-          PLAYER.vx = -PLAYER.speed;
-          PLAYER.dir = -1;
-        } else if (keys["arrowright"]) {
-          PLAYER.vx = PLAYER.speed;
-          PLAYER.dir = 1;
-        } else {
-          PLAYER.vx = 0;
-        }
-        // Pulo
+      // --- MOVIMENTO ---
+      if (PLAYER.canAct && !PLAYER.awakened) {
+        if (keys["arrowleft"]) { PLAYER.vx = -PLAYER.speed; PLAYER.dir = -1; }
+        else if (keys["arrowright"]) { PLAYER.vx = PLAYER.speed; PLAYER.dir = 1; }
+        else PLAYER.vx = 0;
+
         if ((keys[" "] || keys["arrowup"]) && PLAYER.grounded) {
           PLAYER.vy = -PLAYER.jumpPower;
           PLAYER.grounded = false;
         }
-      } else {
-        PLAYER.vx = 0;
-      }
+      } else if (PLAYER.canAct && PLAYER.awakened) {
+        if (keys["arrowleft"]) { PLAYER.vx = -PLAYER.speed-0.4; PLAYER.dir = -1; }
+        else if (keys["arrowright"]) { PLAYER.vx = PLAYER.speed+0.5; PLAYER.dir = 1; }
+        else PLAYER.vx = 0;
 
-      // Skills
-      for(let i=0;i<5;i++) {
-        if (keys[(i+1).toString()]) { useSkill(i); keys[(i+1).toString()] = false; }
-      }
-      if (keys["r"]) { skillR(); keys["r"]=false; }
-
-      // Aura Azul
-      if (PLAYER.aura) {
-        if (PLAYER.aura.growing) {
-          PLAYER.aura.r += 2.9;
-          if (PLAYER.aura.r >= PLAYER.aura.max) {
-            PLAYER.aura.r = PLAYER.aura.max;
-            PLAYER.aura.growing = false;
-          }
-        } else {
-          PLAYER.aura.r -= 1.5;
-          if (PLAYER.aura.r <= 0) {
-            PLAYER.aura = null;
-          }
+        if ((keys[" "] || keys["arrowup"]) && PLAYER.grounded) {
+          PLAYER.vy = -PLAYER.jumpPower-1.7;
+          PLAYER.grounded = false;
         }
-      }
+      } else { PLAYER.vx = 0; }
 
-      // Vermelho
-      if (vermProj && !vermProj.exploded) {
-        vermProj.x += vermProj.vx;
-        vermProj.y += vermProj.vy;
-        vermProj.timer++;
-        // Explodir em contato
-        if (vermProj.target && vermProj.target.alive &&
-          vermProj.x + vermProj.r > vermProj.target.x &&
-          vermProj.x - vermProj.r < vermProj.target.x + vermProj.target.w &&
-          vermProj.y + vermProj.r > vermProj.target.y &&
-          vermProj.y - vermProj.r < vermProj.target.y + vermProj.target.h
-        ) {
-          vermProj.exploded = true;
-          vermProj.target.hp -= 22;
-          vermProj.target.vx = PLAYER.dir*3;
-          vermProj.target.vy = -4;
-          vermProj.target.slow = false;
-        }
-        if (vermProj.x < -30 || vermProj.x > canvas.width+30) vermProj = null;
-      } else if (vermProj && vermProj.exploded) {
-        vermProj.r += 3;
-        if (vermProj.r > 32) vermProj = null;
-      }
-
-      // Infinito
-      if (PLAYER.infBarrier) {
-        PLAYER.infTimer--;
-        if (PLAYER.infTimer<=0) PLAYER.infBarrier = false;
-      }
-
-      // Socos rápidos
-      if (PLAYER.punchAnim) {
-        PLAYER.punchTimer++;
-        if (PLAYER.punchTarget && PLAYER.punchTarget.alive) {
-          if (PLAYER.punchStep<5 && PLAYER.punchTimer%6===0) {
-            PLAYER.punchTarget.hp -= 3.5;
-            PLAYER.punchTarget.vx = PLAYER.dir*1.5;
-            PLAYER.punchTarget.vy = -1.5-Math.random()*1.5;
-            punchFX = {x:PLAYER.punchTarget.x+PLAYER.punchTarget.w/2+Math.random()*8-4, y:PLAYER.punchTarget.y-6, t:7};
-            PLAYER.punchStep++;
-          }
-          if (PLAYER.punchStep===5 && PLAYER.punchTimer===30) {
-            PLAYER.punchTarget.hp -= 7;
-            PLAYER.punchTarget.vx = PLAYER.dir*7;
-            PLAYER.punchTarget.vy = -4;
-            punchFX = {x:PLAYER.punchTarget.x+PLAYER.punchTarget.w/2, y:PLAYER.punchTarget.y-8, t:10};
-            PLAYER.punchAnim = 0; PLAYER.punchStep = 0; PLAYER.punchTimer = 0; PLAYER.canAct = true;
-          }
-        } else {
-          PLAYER.punchAnim = 0; PLAYER.punchStep = 0; PLAYER.punchTimer = 0; PLAYER.canAct = true;
-        }
-      }
-
-      // Movimento player
+      // --- COLISOES MAPA ---
       PLAYER.x += PLAYER.vx;
       PLAYER.y += PLAYER.vy;
-      if (!PLAYER.grounded) PLAYER.vy += GRAVITY;
-      if (PLAYER.y >= GROUND_Y) {
-        PLAYER.y = GROUND_Y;
-        PLAYER.vy = 0;
-        PLAYER.grounded = true;
-      }
-      PLAYER.x = Math.max(0, Math.min(canvas.width-PLAYER.w, PLAYER.x));
+      if (!PLAYER.grounded) PLAYER.vy += 0.7;
+      if (PLAYER.y >= groundY) { PLAYER.y = groundY; PLAYER.vy = 0; PLAYER.grounded = true; }
+      PLAYER.x = Math.max(0, Math.min(mapWidth-PLAYER.w, PLAYER.x));
 
-      // Movimento inimigos
+      // --- ENEMY MOV ---
       for (let e of enemies) {
         if (!e.alive) continue;
-        if (e.stunned) {
-          e.vx = 0; e.vy = 0;
-          e.stunT--;
-          if (e.stunT<=0) e.stunned = false;
-          continue;
-        }
-        if (e.slow) {
-          e.slowT--;
-          if (e.slowT<=0) e.slow = false;
-        }
-        // Lentidão (infinito)
-        let speed = e.slow ? .33 : 1.12;
+        if (PLAYER.infField && e.frozen) continue;
+        if (e.stunned) { e.vx = 0; e.vy = 0; e.stunT--; if(e.stunT<=0) e.stunned = false; continue; }
+        if (e.slow) { e.slowT--; if(e.slowT<=0) e.slow = false; }
+        let speed = e.slow ? 0.5 : 1.25;
         let dx = PLAYER.x - e.x;
-        if (Math.abs(dx) > 6) e.vx = Math.sign(dx) * speed;
+        if (Math.abs(dx) > 12) e.vx = Math.sign(dx) * speed;
         else e.vx = 0;
         e.x += e.vx;
         e.y += e.vy;
-        if (e.y < GROUND_Y) e.vy += GRAVITY;
-        if (e.y > GROUND_Y) { e.y = GROUND_Y; e.vy = 0; }
+        if (e.y < groundY) e.vy += 0.7;
+        if (e.y > groundY) { e.y = groundY; e.vy = 0; }
         if (e.hp <= 0) e.alive = false;
       }
 
-      // Punch FX
-      if (punchFX) {
-        punchFX.t--;
-        if (punchFX.t<=0) punchFX = null;
+      // --- AWK BARRA ---
+      if (!PLAYER.awakened) {
+        // Se acertar inimigo, awk += 10
+        for (let e of enemies) {
+          if (!e.alive) continue;
+          let dx = Math.abs(PLAYER.x-e.x);
+          if (dx<45 && Math.abs(PLAYER.y-e.y)<35) {
+            PLAYER.awk = Math.min(PLAYER.awkMax, PLAYER.awk+0.08);
+          }
+        }
       }
 
-      // Render
+      // --- AWK UP ---
+      if (!PLAYER.awakened && PLAYER.awk >= PLAYER.awkMax && keys["g"]) {
+        PLAYER.awakened = true;
+        PLAYER.awkTimer = 0;
+        PLAYER.awk = PLAYER.awkMax;
+        document.getElementById("awkReady").style.display = "none";
+        PLAYER.awkCD = [0,0,0,0];
+        PLAYER.blueSky = false;
+        PLAYER.blueSkyObj = null;
+        PLAYER.blueComboReady = false;
+        PLAYER.redObj = null;
+        PLAYER.redCombo = false;
+        PLAYER.purpleObj = null;
+        PLAYER.infField = null;
+      }
+
+      // --- AWK SKILLS ---
+      // 1: Azul Máximo
+      if (PLAYER.awakened && keys["1"] && !PLAYER.awkLock[0]) {
+        keys["1"]=false; PLAYER.awkLock[0]=true; PLAYER.awkCD[0]=8; // 8s cd
+        PLAYER.blueSkyObj = {x: PLAYER.x+PLAYER.w/2, y: PLAYER.y+24, r: 27, t:0, state:0, spins:0};
+        PLAYER.blueSky = false; // reset
+      }
+      // 2: Vermelho Máximo
+      if (PLAYER.awakened && keys["2"] && !PLAYER.awkLock[1]) {
+        keys["2"]=false; PLAYER.awkLock[1]=true; PLAYER.awkCD[1]=7;
+        PLAYER.redObj = {x: PLAYER.x+PLAYER.w/2, y: PLAYER.y+18, r: 10, t:0, state:0, dir:PLAYER.dir, combo: false, target: null};
+        PLAYER.redHold = true;
+      }
+      // 3: Vazio Roxo
+      if (PLAYER.awakened && keys["3"] && !PLAYER.awkLock[2]) {
+        keys["3"]=false; PLAYER.awkLock[2]=true; PLAYER.awkCD[2]=7;
+        PLAYER.purpleObj = {x: PLAYER.x+PLAYER.w/2, y: PLAYER.y+26, r: 18, vx: 0, charging: true, t: 0};
+        PLAYER.purpleHold = true;
+      }
+      // 4: Vazio Infinito
+      if (PLAYER.awakened && keys["4"] && !PLAYER.awkLock[3]) {
+        keys["4"]=false; PLAYER.awkLock[3]=true; PLAYER.awkCD[3]=14;
+        PLAYER.infField = {x: PLAYER.x+PLAYER.w/2, y: PLAYER.y+PLAYER.h/2, r: 170, t:0, active:true};
+        for (let e of enemies) {
+          if (!e.alive) continue;
+          let dx = PLAYER.x+PLAYER.w/2-e.x-e.w/2, dy = PLAYER.y+PLAYER.h/2-e.y-e.h/2;
+          if (Math.hypot(dx,dy)<170) e.frozen = true;
+        }
+      }
+
+      // Azul Máximo: gira 3x e sobe para o céu
+      if (PLAYER.blueSkyObj) {
+        PLAYER.blueSkyObj.t++;
+        if (PLAYER.blueSkyObj.state===0) {
+          let angle = (PLAYER.blueSkyObj.t/21) * Math.PI*2; // 1 giro = ~21 frames
+          PLAYER.blueSkyObj.x = PLAYER.x+PLAYER.w/2+Math.cos(angle)*54;
+          PLAYER.blueSkyObj.y = PLAYER.y+32+Math.sin(angle)*26;
+          if (PLAYER.blueSkyObj.t%21===0) PLAYER.blueSkyObj.spins++;
+          if (PLAYER.blueSkyObj.spins>=3) { PLAYER.blueSkyObj.state=1; }
+        } else if (PLAYER.blueSkyObj.state===1) {
+          PLAYER.blueSkyObj.y -= 5;
+          if (PLAYER.blueSkyObj.y<60) {
+            PLAYER.blueSky = true;
+            PLAYER.blueSkyObj.state=2;
+            PLAYER.blueSkyObj.t = 0;
+          }
+        }
+        // se sumir do céu após 12s
+        if (PLAYER.blueSkyObj.t>380) { PLAYER.blueSkyObj = null; PLAYER.blueSky = false;}
+      }
+
+      // Vermelho Máximo: bola na mão -> feixe -> combo com azul
+      if (PLAYER.redObj) {
+        PLAYER.redObj.t++;
+        // Estado 0: carregar na mão
+        if (PLAYER.redObj.state===0) {
+          if (PLAYER.redObj.t>25) { PLAYER.redObj.state=1; }
+        }
+        // Estado 1: feixe dispara
+        else if (PLAYER.redObj.state===1) {
+          // Feixe atinge inimigos à frente
+          let fx = PLAYER.redObj.x+PLAYER.redObj.dir*180;
+          for (let e of enemies) {
+            if (!e.alive) continue;
+            let ex = e.x+e.w/2;
+            let hit = (PLAYER.redObj.dir>0 && ex>PLAYER.redObj.x && ex<fx) ||
+                      (PLAYER.redObj.dir<0 && ex<PLAYER.redObj.x && ex>fx);
+            if (hit && Math.abs(e.y-PLAYER.redObj.y)<32) {
+              e.hp -= 42; e.stunned = true; e.stunT = 40;
+              if (PLAYER.blueSky) PLAYER.blueComboReady = true;
+            }
+          }
+        }
+        // Estado Combo: ao apertar R, bola volta, puxa inimigo e soco
+        if (PLAYER.redObj.combo) {
+          if (PLAYER.redObj.t===75) {
+            // Procura inimigo atingido
+            let tgt = null;
+            for (let e of enemies) {
+              if (!e.alive) continue;
+              let dx = Math.abs(e.x-PLAYER.redObj.x);
+              if (dx<120 && Math.abs(e.y-PLAYER.redObj.y)<40) { tgt = e; break; }
+            }
+            if (tgt) {
+              tgt.x = PLAYER.x+PLAYER.dir*44;
+              tgt.hp -= 55; tgt.stunned = true; tgt.stunT = 55;
+            }
+          }
+        }
+        // Interação Azul no céu: transformar em Bola Roxa
+        if (PLAYER.blueSky && PLAYER.blueComboReady) {
+          PLAYER.purpleObj = {x:PLAYER.blueSkyObj.x, y:PLAYER.blueSkyObj.y, r:45, vx:0, charging:false, t:0, explode:true};
+          PLAYER.blueSkyObj = null; PLAYER.blueSky = false; PLAYER.blueComboReady = false;
+          PLAYER.redObj = null;
+        }
+        // Finaliza
+        if (PLAYER.redObj.t>80) PLAYER.redObj = null;
+      }
+
+      // Combo Vermelho: R puxa inimigo e soca
+      if (PLAYER.awakened && keys["r"] && PLAYER.redObj && PLAYER.redObj.state===1 && !PLAYER.redObj.combo) {
+        PLAYER.redObj.combo = true; PLAYER.redObj.t = 0;
+        keys["r"]=false;
+      }
+
+      // Vazio Roxo: segurar aumenta bola, soltar lança
+      if (PLAYER.purpleObj && PLAYER.purpleObj.charging) {
+        if (keys["3"]) {
+          if (PLAYER.purpleObj.r<43) PLAYER.purpleObj.r += 1.3;
+        } else {
+          PLAYER.purpleObj.charging = false;
+          PLAYER.purpleObj.vx = 12*PLAYER.dir;
+        }
+      }
+      // Bola roxa explode se for combo com azul/vermelho
+      if (PLAYER.purpleObj && PLAYER.purpleObj.explode) {
+        PLAYER.purpleObj.t++;
+        if (PLAYER.purpleObj.t<22) {
+          // Explosão em área
+          for (let e of enemies) {
+            if (!e.alive) continue;
+            let dx=PLAYER.purpleObj.x-(e.x+e.w/2), dy=PLAYER.purpleObj.y-(e.y+e.h/2);
+            if (Math.hypot(dx,dy)<PLAYER.purpleObj.r+90) e.hp -= 60;
+          }
+        }
+        if (PLAYER.purpleObj.t>40) PLAYER.purpleObj = null;
+      }
+      // Lançamento bola roxa normal
+      if (PLAYER.purpleObj && !PLAYER.purpleObj.charging && !PLAYER.purpleObj.explode) {
+        PLAYER.purpleObj.x += PLAYER.purpleObj.vx;
+        for (let e of enemies) {
+          if (!e.alive) continue;
+          let dx=PLAYER.purpleObj.x-(e.x+e.w/2), dy=PLAYER.purpleObj.y-(e.y+e.h/2);
+          if (Math.hypot(dx,dy)<PLAYER.purpleObj.r+8) e.hp -= 25;
+        }
+        if (PLAYER.purpleObj.x< -60 || PLAYER.purpleObj.x>mapWidth+60) PLAYER.purpleObj = null;
+      }
+
+      // Vazio Infinito: campo paralisa todos por 10s
+      if (PLAYER.infField) {
+        PLAYER.infField.t++;
+        if (PLAYER.infField.t>650) {
+          for (let e of enemies) e.frozen = false;
+          PLAYER.infField = null;
+        }
+      }
+
+      // --- COOLDOWNS ---
+      if (PLAYER.awakened) {
+        for (let i=0;i<4;i++) {
+          if (PLAYER.awkLock[i]) {
+            PLAYER.awkCD[i]-=1/60;
+            if (PLAYER.awkCD[i]<=0) { PLAYER.awkLock[i]=false; PLAYER.awkCD[i]=0;}
+          }
+        }
+      }
+
+      // --- AWK RESET ---
+      if (PLAYER.awakened) {
+        PLAYER.awkTimer ++;
+        if (PLAYER.awkTimer > 1200) { // ~20s
+          PLAYER.awakened = false;
+          PLAYER.awk = 0;
+        }
+      }
+
+      // --- RENDER ---
       draw();
       renderSkillsHUD();
+      renderAwkBar();
       requestAnimationFrame(gameLoop);
     }
 
-    // Draw
+    // --- DRAW ---
     function draw() {
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      // Chão
-      ctx.fillStyle = "#4db04d";
-      ctx.fillRect(0, GROUND_Y+PLAYER.h-8, canvas.width, 40);
+      ctx.clearRect(0,0,mapWidth,mapHeight);
+      // chão
+      ctx.fillStyle = "#3aa557";
+      ctx.fillRect(0, groundY+62, mapWidth, mapHeight-groundY-62);
 
-      // Infinito barreira
-      if (PLAYER.infBarrier) {
+      // Infinito: campo
+      if (PLAYER.infField) {
         ctx.save();
-        ctx.globalAlpha = 0.10 + 0.08*Math.sin(PLAYER.infTimer/15);
+        ctx.globalAlpha = 0.13+0.08*Math.sin(PLAYER.infField.t/12);
         ctx.beginPath();
-        ctx.arc(PLAYER.x+PLAYER.w/2, PLAYER.y+PLAYER.h/2, 55, 0, Math.PI*2);
-        ctx.fillStyle = "#b8a8ff";
+        ctx.arc(PLAYER.infField.x, PLAYER.infField.y, PLAYER.infField.r, 0, Math.PI*2);
+        let grad = ctx.createRadialGradient(PLAYER.infField.x, PLAYER.infField.y, 20, PLAYER.infField.x, PLAYER.infField.y, PLAYER.infField.r);
+        grad.addColorStop(0,"#fff"); grad.addColorStop(0.2,"#5cf"); grad.addColorStop(0.85,"#2b0e3e");
+        grad.addColorStop(1,"#000");
+        ctx.fillStyle = grad;
         ctx.fill();
+        ctx.globalAlpha=1;
+        ctx.restore();
+      }
+
+      // Azul Máximo
+      if (PLAYER.blueSkyObj) {
+        ctx.save();
+        let grad = ctx.createRadialGradient(PLAYER.blueSkyObj.x, PLAYER.blueSkyObj.y, 12, PLAYER.blueSkyObj.x, PLAYER.blueSkyObj.y, PLAYER.blueSkyObj.r);
+        grad.addColorStop(0,"#c5f6ff");
+        grad.addColorStop(0.23,"#42c9fa");
+        grad.addColorStop(1,"#1a3e7a");
+        ctx.beginPath();
+        ctx.arc(PLAYER.blueSkyObj.x,PLAYER.blueSkyObj.y,PLAYER.blueSkyObj.r,0,Math.PI*2);
+        ctx.fillStyle = grad;
+        ctx.shadowColor = "#88e0ff";
+        ctx.shadowBlur = 28;
+        ctx.globalAlpha = 0.93;
+        ctx.fill();
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
         ctx.restore();
       }
 
-      // Aura Azul
-      if (PLAYER.aura) {
+      // Vermelho Máximo
+      if (PLAYER.redObj) {
         ctx.save();
+        if (PLAYER.redObj.state===0) {
+          ctx.beginPath();
+          ctx.arc(PLAYER.redObj.x, PLAYER.redObj.y, 13, 0, Math.PI*2);
+          ctx.fillStyle = "#ff6a6a";
+          ctx.shadowColor = "#faa";
+          ctx.shadowBlur = 12;
+          ctx.globalAlpha = .93;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        } else if (PLAYER.redObj.state===1) {
+          ctx.globalAlpha = 0.3;
+          ctx.fillStyle = "#ff4444";
+          ctx.fillRect(PLAYER.redObj.x, PLAYER.redObj.y-7, PLAYER.redObj.dir*160, 14);
+          ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+      }
+
+      // Bola roxa
+      if (PLAYER.purpleObj) {
+        ctx.save();
+        let grad = ctx.createRadialGradient(PLAYER.purpleObj.x, PLAYER.purpleObj.y, 7, PLAYER.purpleObj.x, PLAYER.purpleObj.y, PLAYER.purpleObj.r);
+        grad.addColorStop(0, "#fff");
+        grad.addColorStop(0.14, "#e0b6ff");
+        grad.addColorStop(0.44, "#a684e7");
+        grad.addColorStop(1, "#3d006b");
         ctx.beginPath();
-        ctx.arc(PLAYER.aura.x, PLAYER.aura.y, PLAYER.aura.r, 0, Math.PI*2);
-        ctx.fillStyle = "rgba(100,220,255,0.18)";
-        ctx.shadowColor = "#91e8ff";
-        ctx.shadowBlur = 12;
+        ctx.arc(PLAYER.purpleObj.x,PLAYER.purpleObj.y,PLAYER.purpleObj.r,0,Math.PI*2);
+        ctx.fillStyle = grad;
+        ctx.shadowColor = "#fff";
+        ctx.shadowBlur = 22;
+        ctx.globalAlpha = 0.97;
         ctx.fill();
+        ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
         ctx.restore();
       }
 
-      // Vermelho projétil
-      if (vermProj) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(vermProj.x, vermProj.y, vermProj.r, 0, Math.PI*2);
-        ctx.fillStyle = vermProj.exploded ? "#ffaaaa" : "#ff4444";
-        ctx.shadowColor = "#faa";
-        ctx.shadowBlur = 8;
-        ctx.globalAlpha = .8;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.restore();
-      }
-
-      // Punch FX
-      if (punchFX) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(punchFX.x, punchFX.y, 6, 0, Math.PI*2);
-        ctx.fillStyle = "#fff";
-        ctx.globalAlpha = 0.7*punchFX.t/10;
-        ctx.shadowColor = "#ffe066";
-        ctx.shadowBlur = 4;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.restore();
-      }
-
-      // Gojo (player)
-      ctx.save();
-      ctx.fillStyle = gojoColor;
-      ctx.shadowColor = "#e0eaff";
-      ctx.shadowBlur = 5;
-      ctx.fillRect(PLAYER.x, PLAYER.y, PLAYER.w, PLAYER.h);
-      ctx.shadowBlur = 0;
-      ctx.restore();
-
-      ctx.font = "bold 11px Arial";
-      ctx.fillStyle = "#fff";
-      ctx.strokeStyle = "#222";
-      ctx.lineWidth = 2;
-      ctx.strokeText("Gojo", PLAYER.x+2, PLAYER.y-4);
-      ctx.fillText("Gojo", PLAYER.x+2, PLAYER.y-4);
+      // Gojo
+      drawGojo(PLAYER.x, PLAYER.y, PLAYER.w, PLAYER.h, PLAYER.dir, PLAYER.awakened);
 
       // Inimigos
       for(let e of enemies) {
         if(!e.alive) continue;
-        // Sombra
-        ctx.save();
-        ctx.globalAlpha = 0.13;
-        ctx.beginPath();
-        ctx.ellipse(e.x+e.w/2, GROUND_Y+e.h-2, 9, 4, 0,0,Math.PI*2);
-        ctx.fillStyle = "#000";
-        ctx.fill();
-        ctx.restore();
-        // Corpo
-        ctx.save();
-        ctx.fillStyle = e.col;
-        ctx.globalAlpha = e.stunned ? 0.5 : 1;
-        ctx.fillRect(e.x, e.y, e.w, e.h);
-        ctx.restore();
+        drawEnemy(e);
         // HP bar
         ctx.save();
-        ctx.fillStyle = "#222";
-        ctx.fillRect(e.x-2, e.y-8, e.w+4, 4);
+        ctx.fillStyle = "#232";
+        ctx.fillRect(e.x-2, e.y-9, e.w+4, 5);
         ctx.fillStyle = "#e06666";
-        ctx.fillRect(e.x-2, e.y-8, (e.w+4)*e.hp/e.mhp, 4);
+        ctx.fillRect(e.x-2, e.y-9, (e.w+4)*e.hp/e.mhp, 5);
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 1;
-        ctx.strokeRect(e.x-2, e.y-8, e.w+4, 4);
+        ctx.strokeRect(e.x-2, e.y-9, e.w+4, 5);
         ctx.restore();
       }
     }
 
-    // HUD
+    // --- SKILLS HUD ---
     function renderSkillsHUD() {
-      const hud = document.getElementById('skillsHUD');
-      let t = now;
+      const skills = [
+        { n:"Azul Max.", k:"1", cd:PLAYER.awkCD[0], l:!PLAYER.awkLock[0], d:"Gira 3x e sobe<br>Interage com Vermelho" },
+        { n:"Verm. Max.", k:"2", cd:PLAYER.awkCD[1], l:!PLAYER.awkLock[1], d:"Carrega e feixe<br>R: Combo soco<br>Interage com Azul" },
+        { n:"Vazio Roxo", k:"3", cd:PLAYER.awkCD[2], l:!PLAYER.awkLock[2], d:"Aumenta segurando<br>Lança bola roxa" },
+        { n:"Vazio Inf.", k:"4", cd:PLAYER.awkCD[3], l:!PLAYER.awkLock[3], d:"Campo paralisa 10s" },
+      ];
       let html = "";
-      for(let i=0;i<skillData.length;i++) {
-        let sk = skillData[i];
-        let cd = Math.max(0, sk.cooldown-(t-sk.last));
-        html += `<div class="skillBox${cd>0?' cooldown':''}">
-          <div class="skillName">${sk.name}</div>
-          <div class="skillKey">${sk.key}</div>
-          ${sk.r?'<div class="skillR">R</div>':''}
-          <div class="skillCD">${cd>0?cd.toFixed(1)+'s':'ok'}</div>
-        </div>`;
+      if (!PLAYER.awakened) {
+        html = `<span style="color:#69e1ff;">Awk: Acumule a barra batendo!</span>`;
+      } else {
+        for (let s of skills) {
+          html += `<div class="skillLine">
+            <span class="skKey">${s.k}</span>
+            <span>${s.n}</span>
+            <span class="${s.l?'':'skLock'}">${s.cd>0?s.cd.toFixed(1)+'s':''}</span>
+          </div>`;
+        }
       }
-      hud.innerHTML = html;
+      document.getElementById('skillsHUD').innerHTML = html;
     }
 
-    // Start
+    // --- AWK BAR ---
+    function renderAwkBar() {
+      const ratio = PLAYER.awk / PLAYER.awkMax;
+      document.getElementById("awkBar").style.width = (ratio*100)+"%";
+      document.getElementById("awkText").textContent = `Awk: ${(PLAYER.awk).toFixed(0)} / ${PLAYER.awkMax}`;
+      document.getElementById("awkReady").style.display = (!PLAYER.awakened && PLAYER.awk>=PLAYER.awkMax) ? "" : "none";
+    }
+
+    // --- START ---
+    spawnEnemy();
     spawnEnemy();
     spawnEnemy();
     requestAnimationFrame(gameLoop);
